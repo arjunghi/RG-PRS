@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if false; }
+    
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return true; }
+    
+    function isAbsoluteAdmin() {
+      return request.auth != null && request.auth.token.email == 'arjun@rajarshigurukul.edu.np';
+    }
+    
+    function getUserData() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data 
+        : get(/databases/$(database)/documents/users/$(request.auth.token.email)).data;
+    }
+    
+    function hasRole(allowedRoles) {
+      return isAbsoluteAdmin() || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in allowedRoles) ||
+        (request.auth.token.email != null && exists(/databases/$(database)/documents/users/$(request.auth.token.email)) && get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role in allowedRoles);
+    }
+    
+    function isAdmin() { return hasRole(['admin']); }
+    function isTeacher() { return hasRole(['teacher', 'eca_teacher', 'admin']); }
+    function isStaff() { return hasRole(['staff', 'teacher', 'eca_teacher', 'admin']); }
+    
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt']) && 
+             data.email is string && data.email.size() <= 200 &&
+             data.role in ['admin', 'teacher', 'eca_teacher', 'staff', 'student'] &&
+             data.createdAt is string; // using string for ISO dates
+    }
+
+    match /settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isAbsoluteAdmin() || request.auth.email == userId);
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isVerified() && isValidUser(incoming()) && ( (request.auth.uid == userId && incoming().role == 'student') || isAdmin() );
+      allow update: if isSignedIn() && isVerified() && isAdmin() && isValidUser(incoming());
+      allow delete: if isSignedIn() && isAdmin();
+    }
+
+    function isValidSubject(data) {
+      return data.keys().hasAll(['name', 'type', 'gradeLevel', 'teacherEmails']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.type in ['academic', 'eca'] &&
+             data.gradeLevel is string && data.gradeLevel.size() <= 50 &&
+             (!('ecaCriteria' in data.keys()) || (data.ecaCriteria is list && data.ecaCriteria.size() <= 10)) &&
+             (!('assignments' in data.keys()) || (data.assignments is list && data.assignments.size() <= 50)) &&
+             data.teacherEmails is list && data.teacherEmails.size() <= 50;
+    }
+    
+    match /subjects/{subjectId} {
+      allow get, list: if isSignedIn() && isVerified() && isStaff();
+      allow create: if isSignedIn() && isVerified() && isAdmin() && isValidId(subjectId) && isValidSubject(incoming());
+      allow update: if isSignedIn() && isVerified() && isAdmin() && isValidSubject(incoming());
+      allow delete: if isSignedIn() && isVerified() && isAdmin();
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['name', 'section', 'gradeLevel', 'createdAt']) &&
+             data.name is string && data.name.size() <= 150 &&
+             data.section is string && data.section.size() <= 20 &&
+             data.gradeLevel is string && data.gradeLevel.size() <= 20 &&
+             (!('ecaSports' in data.keys()) || (data.ecaSports is list && data.ecaSports.size() <= 2)) &&
+             data.createdAt is string;
+    }
+
+    match /students/{studentId} {
+      allow get, list: if isSignedIn() && isVerified() && isStaff();
+      allow create: if isSignedIn() && isVerified() && isAdmin() && isValidId(studentId) && isValidStudent(incoming());
+      allow update: if isSignedIn() && isVerified() && isTeacher() && isValidStudent(incoming());
+      allow delete: if isSignedIn() && isVerified() && isAdmin();
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['subjectId', 'name', 'taskType', 'term', 'maxMarks', 'date', 'createdAt', 'updatedAt']) &&
+             data.subjectId is string && data.subjectId.size() <= 128 &&
+             data.name is string && data.name.size() <= 150 &&
+             data.taskType is string && data.taskType.size() <= 50 &&
+             data.term is string && data.term.size() <= 50 &&
+             data.date is string && data.date.size() <= 50 &&
+             data.maxMarks is number &&
+             (!('section' in data.keys()) || (data.section is string && data.section.size() <= 50)) &&
+             data.createdAt is string && data.updatedAt is string &&
+             exists(/databases/$(database)/documents/subjects/$(data.subjectId));
+    }
+
+    match /tasks/{taskId} {
+      allow get, list: if isSignedIn() && isVerified() && isStaff();
+      allow create: if isSignedIn() && isVerified() && isTeacher() && isValidId(taskId) && isValidTask(incoming());
+      allow update: if isSignedIn() && isVerified() && isTeacher() && isValidTask(incoming());
+      allow delete: if isSignedIn() && isVerified() && isTeacher();
+    }
+
+    function isValidScore(data) {
+       return data.keys().hasAll(['taskId', 'studentId', 'subjectId', 'score', 'updatedAt']) &&
+              data.taskId is string && data.taskId.size() <= 128 &&
+              data.studentId is string && data.studentId.size() <= 128 &&
+              data.subjectId is string && data.subjectId.size() <= 128 &&
+              (data.score is number || data.score is string) &&
+              data.updatedAt is string;
+    }
+
+    match /scores/{scoreId} {
+      allow list, get: if isSignedIn() && isVerified() && isStaff();
+      allow create: if isSignedIn() && isVerified() && isTeacher() && isValidId(scoreId) && isValidScore(incoming());
+      allow update: if isSignedIn() && isVerified() && isTeacher() && isValidScore(incoming());
+      allow delete: if isSignedIn() && isVerified() && isTeacher();
+    }
+  }
+}

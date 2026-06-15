@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile containing roles and permissions",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "teacher", "staff", "student"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "Academic subject or ECA activity",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["academic", "eca"] },
+        "gradeLevel": { "type": "string" },
+        "teacherEmails": { "type": "array" }
+      },
+      "required": ["name", "type", "gradeLevel", "teacherEmails"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student record",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "section": { "type": "string" },
+        "gradeLevel": { "type": "string" },
+        "ecaSports": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "section", "gradeLevel", "createdAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Assignment, test, or evaluation",
+      "type": "object",
+      "properties": {
+        "subjectId": { "type": "string" },
+        "name": { "type": "string" },
+        "taskType": { "type": "string" },
+        "term": { "type": "string" },
+        "date": { "type": "string" },
+        "section": { "type": "string" },
+        "maxMarks": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["subjectId", "name", "taskType", "term", "maxMarks", "createdAt", "updatedAt"]
+    },
+    "Score": {
+      "title": "Score",
+      "description": "Student score for a specific task",
+      "type": "object",
+      "properties": {
+        "taskId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "score": { "type": ["number", "string"] },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["taskId", "studentId", "subjectId", "score", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Registered platform users and their roles"
+    },
+    "subjects/{subjectId}": {
+      "schema": { "$ref": "#/entities/Subject" },
+      "description": "Subjects tracked in the LMS"
+    },
+    "students/{studentId}": {
+      "schema": { "$ref": "#/entities/Student" },
+      "description": "Enrolled students"
+    },
+    "tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "Created assignments for grading"
+    },
+    "scores/{scoreId}": {
+      "schema": { "$ref": "#/entities/Score" },
+      "description": "Grades given to students"
+    }
+  }
+}

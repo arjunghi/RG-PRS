@@ -1,0 +1,8 @@
+{
+  "name": "Remix: RG PRS 2083 Updated",
+  "description": "System should auto read the data already there in google sheet if we link sheet",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
