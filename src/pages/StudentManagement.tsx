@@ -18,6 +18,13 @@ export default function StudentManagement() {
   const [ecaSubjects, setEcaSubjects] = useState<any[]>([]);
   const [config, setConfig] = useState<any>({ grades: [], sections: [] });
 
+  // Bulk clipboard insert options
+  const [addMode, setAddMode] = useState<"single" | "multiline">("single");
+  const [multilineNames, setMultilineNames] = useState("");
+  const [multiGrade, setMultiGrade] = useState("");
+  const [multiSection, setMultiSection] = useState("");
+  const [isSubmittingMulti, setIsSubmittingMulti] = useState(false);
+
   const isAdmin = user?.appRole === "admin";
   const isTeacher = ["admin", "teacher"].includes(user?.appRole || "");
 
@@ -64,6 +71,49 @@ export default function StudentManagement() {
       triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) {
       handleFirestoreError(err, OperationType.CREATE, "students");
+    }
+  };
+
+  const handleMultilineAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if(!isAdmin) return alert("Must be an admin to add students.");
+    if(!multiGrade || !multiSection) return alert("Please select Grade Level and Section.");
+    if(!multilineNames.trim()) return alert("Please paste or type names in the box.");
+
+    setIsSubmittingMulti(true);
+    try {
+      const names = multilineNames
+        .split("\n")
+        .map(n => n.trim())
+        .filter(n => n.length > 0);
+
+      if (names.length === 0) {
+        alert("No valid student names found in pasted list.");
+        setIsSubmittingMulti(false);
+        return;
+      }
+
+      const promises = names.map(async (name) => {
+        return addDoc(collection(db, "students"), {
+          name,
+          gradeLevel: multiGrade,
+          section: multiSection,
+          ecaSports: [],
+          createdAt: new Date().toISOString()
+        });
+      });
+
+      await Promise.all(promises);
+      alert(`Success! Imported ${names.length} students into ${multiGrade} - ${multiSection}.`);
+      setMultilineNames("");
+      setMultiGrade("");
+      setMultiSection("");
+      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
+    } catch (err) {
+      console.error(err);
+      handleFirestoreError(err, OperationType.CREATE, "students");
+    } finally {
+      setIsSubmittingMulti(false);
     }
   };
 
@@ -171,55 +221,143 @@ export default function StudentManagement() {
       </div>
 
       {isAdmin && (
-        <form onSubmit={handleAdd} className="bg-white p-6 border border-slate-200 rounded-xl flex flex-wrap gap-4 items-end shadow-sm">
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Student Name</label>
-            <input required value={newName} onChange={e => setNewName(e.target.value)} className="w-full sm:w-64 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          {/* Form Tabs */}
+          <div className="flex border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">
+            <button
+              onClick={() => setAddMode("single")}
+              className={`px-5 py-3 border-r border-slate-200 transition-colors uppercase tracking-wider font-bold cursor-pointer ${
+                addMode === "single"
+                  ? "bg-white text-blue-600 border-b-2 border-b-blue-600"
+                  : "hover:bg-slate-100 text-slate-600"
+              }`}
+            >
+              Single Student Form
+            </button>
+            <button
+              onClick={() => setAddMode("multiline")}
+              className={`px-5 py-3 transition-colors uppercase tracking-wider font-bold cursor-pointer ${
+                addMode === "multiline"
+                  ? "bg-white text-blue-600 border-b-2 border-b-blue-600"
+                  : "hover:bg-slate-100 text-slate-600"
+              }`}
+            >
+              Copy-Paste Section Roster List
+            </button>
           </div>
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Grade Level</label>
-            <select required value={newGrade} onChange={e => {setNewGrade(e.target.value); setNewSection("");}} className="w-full sm:w-32 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-               <option value="" disabled>Select</option>
-               {(config.gradeMappings || []).length > 0 ? 
-                 (config.gradeMappings || []).map((g: any) => <option key={g.grade} value={g.grade}>{g.grade}</option>) :
-                 <>
-                   <option value="Grade 1">Grade 1</option>
-                   <option value="Grade 2">Grade 2</option>
-                   <option value="Grade 3">Grade 3</option>
-                 </>
-               }
-            </select>
+
+          <div className="p-6">
+            {addMode === "single" ? (
+              <form onSubmit={handleAdd} className="flex flex-wrap gap-4 items-end">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Student Name</label>
+                  <input required value={newName} onChange={e => setNewName(e.target.value)} className="w-full sm:w-64 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"/>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Grade Level</label>
+                  <select required value={newGrade} onChange={e => {setNewGrade(e.target.value); setNewSection("");}} className="w-full sm:w-32 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                     <option value="" disabled>Select</option>
+                     {(config.gradeMappings || []).length > 0 ? 
+                       (config.gradeMappings || []).map((g: any) => <option key={g.grade} value={g.grade}>{g.grade}</option>) :
+                       <>
+                         <option value="Grade 1">Grade 1</option>
+                         <option value="Grade 2">Grade 2</option>
+                         <option value="Grade 3">Grade 3</option>
+                       </>
+                     }
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Section</label>
+                  <select required value={newSection} onChange={e => setNewSection(e.target.value)} className="w-full sm:w-28 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                     <option value="" disabled>Select</option>
+                     {newGrade && (config.gradeMappings || []).find((g: any) => g.grade === newGrade)?.sections.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                     {(!config.gradeMappings || config.gradeMappings.length === 0) && (
+                       <>
+                         <option value="A">A</option>
+                         <option value="B">B</option>
+                         <option value="C">C</option>
+                       </>
+                     )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">ECA Activity 1</label>
+                  <select value={sport1} onChange={e => setSport1(e.target.value)} className="w-full sm:w-32 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                     <option value="">None</option>
+                     {ecaSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">ECA Activity 2</label>
+                  <select value={sport2} onChange={e => setSport2(e.target.value)} className="w-full sm:w-32 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                     <option value="">None</option>
+                     {ecaSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 transition-colors text-white font-semibold text-sm px-5 py-2 rounded-lg cursor-pointer">Add Student</button>
+              </form>
+            ) : (
+              <form onSubmit={handleMultilineAdd} className="space-y-4">
+                <div className="flex flex-wrap gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-1">Target Grade Level</label>
+                    <select required value={multiGrade} onChange={e => {setMultiGrade(e.target.value); setMultiSection("");}} className="w-48 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                       <option value="" disabled>Select Grade</option>
+                       {(config.gradeMappings || []).length > 0 ? 
+                         (config.gradeMappings || []).map((g: any) => <option key={g.grade} value={g.grade}>{g.grade}</option>) :
+                         <>
+                           <option value="Grade 1">Grade 1</option>
+                           <option value="Grade 2">Grade 2</option>
+                           <option value="Grade 3">Grade 3</option>
+                         </>
+                       }
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-1">Target Section</label>
+                    <select required value={multiSection} onChange={e => setMultiSection(e.target.value)} className="w-40 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                       <option value="" disabled>Select Section</option>
+                       {multiGrade && (config.gradeMappings || []).find((g: any) => g.grade === multiGrade)?.sections.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                       {(!config.gradeMappings || config.gradeMappings.length === 0) && (
+                         <>
+                           <option value="A">A</option>
+                           <option value="B">B</option>
+                           <option value="C">C</option>
+                         </>
+                       )}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">
+                    Student Names (Paste list here, One Name Per Line)
+                  </label>
+                  <textarea
+                    required
+                    rows={6}
+                    value={multilineNames}
+                    onChange={e => setMultilineNames(e.target.value)}
+                    placeholder="Example:&#10;Aaron Smith&#10;Bella Thorne&#10;Chris Evans&#10;Daniel Craig"
+                    className="w-full border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono bg-white"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Empty lines are automatically ignored. Extra whitespaces are trimmed.</p>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={isSubmittingMulti}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 transition-colors text-white font-bold text-xs uppercase tracking-wide px-6 py-2.5 rounded-lg flex items-center space-x-2 cursor-pointer"
+                  >
+                    <span>{isSubmittingMulti ? "Importing Roster..." : "Add All Paste Roster to Section"}</span>
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Section</label>
-            <select required value={newSection} onChange={e => setNewSection(e.target.value)} className="w-full sm:w-28 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-               <option value="" disabled>Select</option>
-               {newGrade && (config.gradeMappings || []).find((g: any) => g.grade === newGrade)?.sections.map((s: string) => <option key={s} value={s}>{s}</option>)}
-               {(!config.gradeMappings || config.gradeMappings.length === 0) && (
-                 <>
-                   <option value="A">A</option>
-                   <option value="B">B</option>
-                   <option value="C">C</option>
-                 </>
-               )}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">ECA Activity 1</label>
-            <select value={sport1} onChange={e => setSport1(e.target.value)} className="w-full sm:w-32 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-               <option value="">None</option>
-               {ecaSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">ECA Activity 2</label>
-            <select value={sport2} onChange={e => setSport2(e.target.value)} className="w-full sm:w-32 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-               <option value="">None</option>
-               {ecaSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <button type="submit" className="bg-blue-600 hover:bg-blue-700 transition-colors text-white font-semibold text-sm px-5 py-2 rounded-lg">Add Student</button>
-        </form>
+        </div>
       )}
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">

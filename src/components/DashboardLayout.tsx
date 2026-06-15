@@ -1,12 +1,98 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, BookOpenCheck, FileBarChart, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, BookOpenCheck, FileBarChart, Settings, LogOut, FileSpreadsheet, ExternalLink, RefreshCw } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { cn } from "../lib/utils";
+import { doc, getDoc, getDocs, setDoc, onSnapshot, collection } from "firebase/firestore";
+import { db } from "../lib/firebaseClient";
+import { importSheetsConfirmAndSync } from "../lib/googleSheetsSync";
 
 export default function DashboardLayout() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, accessToken, reconnectGoogle } = useAuth();
   const location = useLocation();
+
+  const [sheetConfig, setSheetConfig] = useState<any>(null);
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
+  const [syncMessage, setSyncMessage] = useState("");
+
+  // 1. Check & Auto-link the master Google Spreadsheet at startup/mount
+  useEffect(() => {
+    if (!user) return;
+    
+    const autoLinkSheetOnFirstBoot = async () => {
+      try {
+        const docRef = doc(db, "settings", "schoolConfig");
+        const snap = await getDoc(docRef);
+        
+        const defaultId = "1OmKCc9sO-FYeMgECFncxJG_1m8qRCsTp4PvmK-gfEJk";
+        const defaultUrl = `https://docs.google.com/spreadsheets/d/${defaultId}/edit?usp=sharing`;
+        
+        let currentId = snap.exists() ? snap.data().googleSpreadsheetId : null;
+        
+        if (!currentId) {
+          console.log("No connected spreadsheet found. Auto-linking default master sheet:", defaultId);
+          await setDoc(docRef, {
+            googleSpreadsheetId: defaultId,
+            googleSpreadsheetUrl: defaultUrl,
+            googleSyncLastTime: new Date().toISOString()
+          }, { merge: true });
+        }
+      } catch (err) {
+        console.error("Failed to auto-link default master sheet:", err);
+      }
+    };
+    
+    autoLinkSheetOnFirstBoot();
+  }, [user]);
+
+  // 2. Real-time subscription to the school config settings
+  useEffect(() => {
+    if (!user) return;
+    const unsub = onSnapshot(doc(db, "settings", "schoolConfig"), (snap) => {
+      if (snap.exists()) {
+        setSheetConfig(snap.data());
+      }
+    });
+    return unsub;
+  }, [user]);
+
+  // 3. Auto-sync (import data) if an active Google token is detected and Firestore databases are empty
+  useEffect(() => {
+    if (!user || !accessToken) return;
+    
+    const triggerAutoBootstrap = async () => {
+      try {
+        const docRef = doc(db, "settings", "schoolConfig");
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return;
+        
+        const sheetId = snap.data().googleSpreadsheetId;
+        if (!sheetId) return;
+        
+        // Check if database is empty (0 students)
+        const studentsSnap = await getDocs(collection(db, "students"));
+        if (studentsSnap.size === 0) {
+          console.log("Empty database detected. Automating background sheet import/pull...");
+          setSyncStatus("syncing");
+          setSyncMessage("Auto-syncing roster and criteria...");
+          
+          const result = await importSheetsConfirmAndSync(accessToken, sheetId);
+          
+          setSyncStatus("success");
+          setSyncMessage(`Synced ${result.studentsCount} students!`);
+          setTimeout(() => {
+            setSyncStatus("idle");
+          }, 6000);
+        }
+      } catch (err: any) {
+        console.error("Startup auto-pull from google sheets failed:", err);
+        setSyncStatus("error");
+        setSyncMessage("Sheets Sync paused: check permissions");
+      }
+    };
+    
+    triggerAutoBootstrap();
+  }, [user, accessToken]);
 
   const navItems = [
     { name: "Overview", path: "/", icon: LayoutDashboard },
@@ -53,6 +139,99 @@ export default function DashboardLayout() {
             )
           })}
         </nav>
+
+        {/* Google Sheets Sync Integration Status */}
+        {sheetConfig?.googleSpreadsheetId && (
+          <div className="mx-4 p-3.5 bg-slate-800/60 border border-slate-800 rounded-xl mb-4 text-[11px] space-y-2">
+            <div className="flex items-center justify-between text-slate-300">
+              <span className="font-bold flex items-center space-x-1">
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Google Sheets Sync</span>
+              </span>
+              <a
+                href={sheetConfig.googleSpreadsheetUrl}
+                target="_blank"
+                rel="noreferrer"
+                referrerPolicy="no-referrer"
+                className="text-slate-400 hover:text-white transition"
+                title="Open active Spreadsheet"
+              >
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+            
+            <p className="text-[10px] text-slate-400 leading-normal font-medium max-w-full truncate">
+              ID: {sheetConfig.googleSpreadsheetId}
+            </p>
+
+            {accessToken ? (
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Auto-Sync Active</span>
+                </span>
+                
+                <button
+                  onClick={async () => {
+                    if (syncStatus === "syncing") return;
+                    setSyncStatus("syncing");
+                    setSyncMessage("Syncing database...");
+                    try {
+                      const res = await importSheetsConfirmAndSync(accessToken, sheetConfig.googleSpreadsheetId);
+                      setSyncStatus("success");
+                      setSyncMessage(`Synced ${res.studentsCount} Students!`);
+                      setTimeout(() => setSyncStatus("idle"), 4000);
+                    } catch (err) {
+                      setSyncStatus("error");
+                      setSyncMessage("Sync Failed");
+                      setTimeout(() => setSyncStatus("idle"), 4000);
+                    }
+                  }}
+                  className="bg-slate-700 hover:bg-slate-600 hover:text-white text-slate-300 font-semibold px-2 py-0.5 rounded cursor-pointer transition text-[9px]"
+                  title="Force import updates from sheets"
+                >
+                  Sync Now
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="text-amber-400 text-[10px] leading-relaxed font-medium">
+                  Authorize Google account to enable live sheets auto-sync.
+                </div>
+                <button
+                  onClick={async () => {
+                    setSyncStatus("syncing");
+                    setSyncMessage("Connecting Google...");
+                    const token = await reconnectGoogle();
+                    if (token) {
+                      setSyncStatus("success");
+                      setSyncMessage("Google Synced!");
+                      setTimeout(() => setSyncStatus("idle"), 4000);
+                    } else {
+                      setSyncStatus("error");
+                      setSyncMessage("Auth Failed");
+                      setTimeout(() => setSyncStatus("idle"), 4000);
+                    }
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9px] uppercase tracking-wide py-1 rounded block text-center cursor-pointer transition shadow-sm"
+                >
+                  Authorize Google Sync
+                </button>
+              </div>
+            )}
+
+            {syncStatus !== "idle" && (
+              <div className={cn(
+                "p-1.5 rounded text-[10px] font-bold text-center mt-1",
+                syncStatus === "syncing" && "bg-blue-900/40 text-blue-300 animate-pulse",
+                syncStatus === "success" && "bg-emerald-900/30 text-emerald-300",
+                syncStatus === "error" && "bg-rose-900/30 text-rose-300"
+              )}>
+                {syncMessage}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="p-5 border-t border-slate-800">
           <div className="text-xs text-slate-400 opacity-80 uppercase mb-1">{user?.appRole} LOGGED IN</div>
