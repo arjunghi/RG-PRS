@@ -73,20 +73,26 @@ export default function DashboardLayout() {
         const sheetId = snap.data().googleSpreadsheetId;
         if (!sheetId) return;
         
-        // Check if database is empty (0 students)
-        const studentsSnap = await getDocs(collection(db, "students"));
-        if (studentsSnap.size === 0) {
-          console.log("Empty database detected. Automating background sheet import/pull...");
-          setSyncStatus("syncing");
-          setSyncMessage("Auto-syncing roster and criteria...");
-          
-          const result = await importSheetsConfirmAndSync(accessToken, sheetId);
-          
-          setSyncStatus("success");
-          setSyncMessage(`Synced ${result.studentsCount} students!`);
-          setTimeout(() => {
-            setSyncStatus("idle");
-          }, 6000);
+        // Auto-sync on reload if the user has an active token
+        // Wait, to prevent infinite loops during dev, let's keep track of if we've synced this session.
+        if (!sessionStorage.getItem("has_auto_synced")) {
+           console.log("Auto-syncing connected spreadsheet on reload...");
+           setSyncStatus("syncing");
+           setSyncMessage("Auto-syncing roster and criteria...");
+           
+           try {
+             const result = await importSheetsConfirmAndSync(accessToken, sheetId);
+             sessionStorage.setItem("has_auto_synced", "true");
+             setSyncStatus("success");
+             setSyncMessage(`Synced ${result.studentsCount} students!`);
+           } catch(e) {
+             console.error(e);
+             setSyncStatus("error");
+             setSyncMessage("Auto-sync failed");
+           }
+           setTimeout(() => {
+             setSyncStatus("idle");
+           }, 6000);
         }
       } catch (err: any) {
         console.error("Startup auto-pull from google sheets failed:", err);
@@ -112,9 +118,7 @@ export default function DashboardLayout() {
       {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 border-r border-slate-800 bg-slate-900 text-slate-300 flex flex-col hidden md:flex">
         <div className="px-6 py-6 flex items-center space-x-3 border-b border-slate-800">
-          <div className="bg-blue-500 text-white p-2 rounded-xl">
-             <LayoutDashboard className="w-5 h-5" />
-          </div>
+          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRRX05EAIqWz_IDcrGm0_YPLAwCv5vO7zBa39wgxOf_nA&s=10" alt="Logo" className="w-8 h-8 rounded-md bg-white p-0.5 object-contain" />
           <div>
             <h1 className="font-bold text-white text-lg leading-tight">RG PRS Workspace</h1>
             <p className="text-xs text-slate-400 font-medium capitalize">{user?.appRole} Access</p>
