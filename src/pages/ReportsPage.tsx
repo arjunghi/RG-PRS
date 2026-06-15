@@ -165,6 +165,44 @@ export default function ReportsPage() {
      return "-";
   }
 
+  const handleDownloadCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    if (isEca) {
+      csvContent += "SN,Name,Section,ECA Criteria Grades\n";
+      filteredStudents.forEach((st, index) => {
+        const grades = activeSubjectData?.ecaCriteria?.map((c:string) => {
+           const s = scores.find(x => x.taskId === c && x.studentId === st.id);
+           return s ? s.score : "N/A";
+        }).join(" | ") || "No criteria defined";
+        csvContent += `${index + 1},"${st.name}","${st.section}","${grades}"\n`;
+      });
+    } else {
+      csvContent += "SN,Students Name,Sec,Attendance,Discipline,Part. Total,Practical,project,HW,CW,Prac. Total,UT,Parental Ev,Exam Total,Practical Final,Written,Overall Total\n";
+      filteredStudents.forEach((st, index) => {
+        let obtained = 0;
+        let maxToT = 0;
+        tasks.forEach(t => {
+           const s = scores.find(x => x.taskId === t.id && x.studentId === st.id);
+           if(s && !isNaN(Number(s.score))) {
+             obtained += Number(s.score);
+             maxToT += t.maxMarks;
+           }
+        });
+        // We'll output 0 for placeholders right now as per the UI
+        csvContent += `${index + 1},"${st.name}","${st.section}",0,0,0,0,0,0,0,0,0,0,0,${obtained.toFixed(1)},0,${obtained.toFixed(1)}\n`;
+      });
+    }
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `CDC_Report_${activeSubjectData?.name || 'Class'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   const filteredStudents = students.filter(s => {
     if (isEca && (!s.ecaSports || !s.ecaSports.includes(activeSubject))) return false;
     return (activeSection === "All" || s.section === activeSection) &&
@@ -208,6 +246,10 @@ export default function ReportsPage() {
              <button onClick={handleGenerateAI} disabled={!activeSubject} className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 transition-colors text-white px-4 py-2 text-sm font-semibold rounded-lg flex items-center space-x-2 shadow-sm cursor-pointer">
                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41l-7.59-7.59a2.41 2.41 0 0 0-3.41 0l-7.59 7.59z"></path></svg>
                <span>Generate AI Insights</span>
+             </button>
+             <button onClick={handleDownloadCSV} disabled={!activeSubject || filteredStudents.length === 0} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 transition-colors text-white px-4 py-2 text-sm font-semibold rounded-lg flex items-center space-x-2 shadow-sm cursor-pointer border border-emerald-700">
+               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+               <span>Download CSV</span>
              </button>
            </div>
        </div>

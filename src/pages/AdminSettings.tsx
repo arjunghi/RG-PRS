@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../lib/firebaseClient";
-import { collection, onSnapshot, doc, updateDoc, setDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/firebaseUtils";
 import { useAuth } from "../lib/AuthContext";
 import { createSpreadsheet, syncAllFirestoreToSheets, saveSheetConnection, triggerLiveSyncInBg, importSheetsConfirmAndSync } from "../lib/googleSheetsSync";
@@ -148,6 +148,16 @@ export default function AdminSettings() {
        triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) {
        handleFirestoreError(err, OperationType.UPDATE, "subjects");
+    }
+  }
+
+  const handleDeleteSubject = async (subjectId: string) => {
+    if(!confirm("Are you sure you want to delete this subject?")) return;
+    try {
+      await deleteDoc(doc(db, "subjects", subjectId));
+      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
+    } catch(err) {
+      handleFirestoreError(err, OperationType.DELETE, "subjects");
     }
   }
 
@@ -579,7 +589,12 @@ export default function AdminSettings() {
           </form>
           <div className="flex flex-wrap gap-2">
             {subjects.filter(s => s.type === "academic").map(s => (
-              <span key={s.id} className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-sm font-bold text-slate-700 shadow-sm">{s.name}</span>
+              <span key={s.id} className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-sm font-bold text-slate-700 shadow-sm flex items-center gap-2">
+                <span>{s.name}</span>
+                <button type="button" onClick={() => handleDeleteSubject(s.id)} className="text-slate-400 hover:text-red-500 cursor-pointer" title="Delete subject">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                </button>
+              </span>
             ))}
           </div>
         </div>
@@ -611,9 +626,14 @@ export default function AdminSettings() {
           </form>
           <div className="flex flex-wrap gap-2">
             {subjects.filter(s => s.type === "eca").map(s => (
-              <span key={s.id} className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-sm font-bold text-slate-700 shadow-sm flex flex-col">
-                <span>{s.name}</span>
-                <span className="text-[10px] text-slate-400 font-normal">{s.ecaCriteria?.length || 0} criteria</span>
+              <span key={s.id} className="bg-white border border-slate-200 pl-3 pr-2 py-1.5 rounded-lg text-sm font-bold text-slate-700 shadow-sm flex items-start gap-3">
+                <div className="flex flex-col">
+                  <span>{s.name}</span>
+                  <span className="text-[10px] text-slate-400 font-normal">{s.ecaCriteria?.length || 0} criteria</span>
+                </div>
+                <button type="button" onClick={() => handleDeleteSubject(s.id)} className="text-slate-400 hover:text-red-500 cursor-pointer mt-0.5" title="Delete activity">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                </button>
               </span>
             ))}
           </div>

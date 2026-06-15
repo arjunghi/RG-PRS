@@ -51,7 +51,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           appRole = cachedRole as any;
         }
 
-        // 2. Fetch or create user document to get roles with offline resilience
+        // Optimistically set the user and release loading UI so app starts instantly
+        const enrichedUser = firebaseUser as AppUser;
+        enrichedUser.appRole = appRole;
+        setUser(enrichedUser);
+        setLoading(false);
+
+        // 2. Fetch or create user document to get/update roles in the background
         try {
           const userDocRef = doc(db, "users", firebaseUser.uid);
           let userSnap = await getDoc(userDocRef);
@@ -79,20 +85,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              appRole = userSnap.data().role || appRole;
           }
           
-          // Cache verified role
+          // Cache verified role and update user state if changed
           localStorage.setItem(cacheKey, appRole);
+          const updatedUser = { ...enrichedUser, appRole } as AppUser;
+          setUser(updatedUser);
         } catch (err) {
-          console.warn("Profile sync from Firebase failed (may be offline / internet connection flaky). Using offline fallback role:", appRole, err);
+          console.warn("Profile sync from Firebase failed. Using fallback role:", appRole, err);
         }
-        
-        const enrichedUser = firebaseUser as AppUser;
-        enrichedUser.appRole = appRole;
-        setUser(enrichedUser);
       } else {
         setUser(null);
         setAccessToken(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../lib/firebaseClient";
-import { collection, onSnapshot, addDoc, doc, setDoc, query, where, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, doc, setDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/firebaseUtils";
 import { useAuth } from "../lib/AuthContext";
 import { triggerLiveSyncInBg } from "../lib/googleSheetsSync";
@@ -18,6 +18,9 @@ export default function TaskLedger() {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [newTask, setNewTask] = useState({ name: "", maxMarks: 10, taskType: "HW", term: "Spring", date: new Date().toISOString().split("T")[0] });
   const [config, setConfig] = useState<any>({ grades: [], sections: [] });
+
+  const [pendingScores, setPendingScores] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   const isTeacher = ["admin", "teacher", "eca_teacher"].includes(user?.appRole || "");
   const isAdmin = user?.appRole === "admin";
@@ -118,28 +121,63 @@ export default function TaskLedger() {
     }
   }
 
-  const handleScoreChange = async (studentId: string, taskId: string, val: string) => {
+  const handleDeleteTask = async (taskId: string) => {
     if(!isTeacher) return;
-    const isEca = subjects.find(s => s.id === activeSubject)?.type === "eca";
-    const scoreVal = isEca ? val.toUpperCase() : (val.toUpperCase() === "NA" ? "NA" : Number(val));
+    if(!confirm("Are you sure you want to delete this task? All associated scores will be lost.")) return;
+    try {
+      await deleteDoc(doc(db, "tasks", taskId));
+    } catch(err) {
+      handleFirestoreError(err, OperationType.DELETE, "tasks");
+    }
+  }
+
+  const handlePendingScoreChange = (studentId: string, taskId: string, val: string) => {
     const key = `${studentId}_${taskId}`;
-    const existing = scores[key];
+    setPendingScores(prev => ({ ...prev, [key]: val }));
+  }
+
+  const handleSavePendingScores = async () => {
+    if(!isTeacher) return;
+    setIsSaving(true);
+    const isEca = subjects.find(s => s.id === activeSubject)?.type === "eca";
 
     try {
-      if (existing) {
-        await updateDoc(doc(db, "scores", existing.id), { score: scoreVal, updatedAt: new Date().toISOString() });
-      } else {
-        await addDoc(collection(db, "scores"), {
-          studentId,
-          taskId,
-          subjectId: activeSubject,
-          score: scoreVal,
-          updatedAt: new Date().toISOString()
-        });
-      }
+      const promises = Object.entries(pendingScores).map(async ([key, val]: [string, string]) => {
+        const [studentId, taskId] = key.split("_");
+        const existing = scores[key];
+
+        if (val.trim() === "") {
+          if (existing) {
+             return deleteDoc(doc(db, "scores", existing.id));
+          }
+          return;
+        }
+
+        const scoreVal = isEca ? val.toUpperCase() : (val.toUpperCase() === "NA" ? "NA" : Number(val));
+
+        if (existing) {
+          if (String(existing.score) !== String(scoreVal)) {
+             return updateDoc(doc(db, "scores", existing.id), { score: scoreVal, updatedAt: new Date().toISOString() });
+          }
+        } else {
+          return addDoc(collection(db, "scores"), {
+            studentId,
+            taskId,
+            subjectId: activeSubject,
+            score: scoreVal,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      });
+      
+      await Promise.all(promises);
+      setPendingScores({});
       triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
+      alert("Scores saved successfully.");
     } catch(err) {
       handleFirestoreError(err, OperationType.WRITE, "scores");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -186,6 +224,11 @@ export default function TaskLedger() {
               <button onClick={() => setShowTaskForm(!showTaskForm)} className="bg-blue-600 hover:bg-blue-700 transition-colors text-white px-4 py-2 text-sm font-semibold rounded-lg shadow-sm">
                  + Quick Entry
                </button>
+            )}
+            {isTeacher && Object.keys(pendingScores).length > 0 && (
+              <button onClick={handleSavePendingScores} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 transition-colors text-white px-4 py-2 text-sm font-semibold rounded-lg shadow-sm border border-emerald-700">
+                 {isSaving ? "Saving..." : "Save Changes"}
+              </button>
             )}
          </div>
        </div>
@@ -254,10 +297,17 @@ export default function TaskLedger() {
                     <th className="px-4 py-3 border-r border-slate-200 sticky left-0 bg-slate-50 z-20 min-w-[200px] shadow-[1px_0_0_#e2e8f0]">Student Name</th>
                     <th className="px-3 py-3 border-r border-slate-200 sticky left-[200px] bg-slate-50 z-20 text-center shadow-[1px_0_0_#e2e8f0]">Sec</th>
                     {activeTasks.map((t: any) => (
-                      <th key={t.id} className="px-3 py-2 border-r border-slate-200 text-center min-w-[100px] bg-slate-50">
-                         <div className="flex flex-col">
+                      <th key={t.id} className="px-3 py-2 border-r border-slate-200 text-center min-w-[100px] bg-slate-50 group hover:bg-slate-100 transition-colors">
+                         <div className="flex flex-col relative items-center justify-center">
                            <span className="font-bold text-slate-800 text-[11px] truncate w-24 mx-auto" title={t.name}>{t.name}</span>
                            <span className="text-[10px] text-blue-600 font-bold uppercase">{t.taskType} ({t.maxMarks})</span>
+                           {activeSubjectData?.type !== "eca" && isTeacher && (
+                             <button onClick={() => handleDeleteTask(t.id)} className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all p-1" title="Delete Task">
+                               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                               </svg>
+                             </button>
+                           )}
                          </div>
                       </th>
                     ))}
@@ -271,16 +321,13 @@ export default function TaskLedger() {
                       {activeTasks.map((t: any) => {
                         const key = `${st.id}_${t.id}`;
                         const scoreData = scores[key];
+                        const displayedScore = pendingScores[key] !== undefined ? pendingScores[key] : (scoreData?.score ?? "");
                         return (
-                          <td key={t.id} className="px-3 py-1.5 border-r border-slate-100">
+                          <td key={t.id} className={`px-3 py-1.5 border-r border-slate-100 ${pendingScores[key] !== undefined ? "bg-amber-50" : ""}`}>
                              {activeSubjectData?.type === "eca" ? (
                                <select 
-                                 defaultValue={scoreData?.score ?? ""}
-                                 onChange={(e) => {
-                                   if(e.target.value !== String(scoreData?.score ?? "")) {
-                                     handleScoreChange(st.id, t.id, e.target.value);
-                                   }
-                                 }}
+                                 value={displayedScore}
+                                 onChange={(e) => handlePendingScoreChange(st.id, t.id, e.target.value)}
                                  className="w-full bg-transparent text-center outline-none focus:bg-blue-50 focus:ring-1 focus:ring-blue-400 rounded py-1 px-2 border border-transparent hover:border-slate-300 transition-colors appearance-none cursor-pointer font-bold text-slate-700"
                                  disabled={!isTeacher}
                                >
@@ -295,12 +342,8 @@ export default function TaskLedger() {
                              ) : (
                                <input 
                                  type="text"
-                                 defaultValue={scoreData?.score ?? ""}
-                                 onBlur={(e) => {
-                                   if(e.target.value !== String(scoreData?.score ?? "")) {
-                                     handleScoreChange(st.id, t.id, e.target.value);
-                                   }
-                                 }}
+                                 value={displayedScore}
+                                 onChange={(e) => handlePendingScoreChange(st.id, t.id, e.target.value)}
                                  className="w-full bg-transparent text-center outline-none focus:bg-blue-50 focus:ring-1 focus:ring-blue-400 rounded py-1 px-2 border border-transparent hover:border-slate-300 transition-colors"
                                  placeholder="-"
                                  disabled={!isTeacher}

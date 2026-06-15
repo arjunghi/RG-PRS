@@ -37,8 +37,12 @@ export default function DashboardLayout() {
             googleSyncLastTime: new Date().toISOString()
           }, { merge: true });
         }
-      } catch (err) {
-        console.error("Failed to auto-link default master sheet:", err);
+      } catch (err: any) {
+        if (err.message?.includes('offline')) {
+          console.warn("Client is offline, skipping master sheet linking.");
+        } else {
+          console.warn("Failed to auto-link default master sheet:", err);
+        }
       }
     };
     
@@ -167,15 +171,15 @@ export default function DashboardLayout() {
             {accessToken ? (
               <div className="flex items-center justify-between text-[10px]">
                 <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Auto-Sync Active</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span>Google Sheets Connected</span>
                 </span>
                 
                 <button
                   onClick={async () => {
                     if (syncStatus === "syncing") return;
                     setSyncStatus("syncing");
-                    setSyncMessage("Syncing database...");
+                    setSyncMessage("Manual Syncing DB...");
                     try {
                       const res = await importSheetsConfirmAndSync(accessToken, sheetConfig.googleSpreadsheetId);
                       setSyncStatus("success");
@@ -188,15 +192,15 @@ export default function DashboardLayout() {
                     }
                   }}
                   className="bg-slate-700 hover:bg-slate-600 hover:text-white text-slate-300 font-semibold px-2 py-0.5 rounded cursor-pointer transition text-[9px]"
-                  title="Force import updates from sheets"
+                  title="Force import updates from sheets (Warning: may overwrite manual changes)"
                 >
-                  Sync Now
+                  Pull from sheet
                 </button>
               </div>
             ) : (
               <div className="space-y-1.5">
-                <div className="text-amber-400 text-[10px] leading-relaxed font-medium">
-                  Authorize Google account to enable live sheets auto-sync.
+                <div className="text-slate-400 text-[10px] leading-relaxed">
+                  Connect to pull/push spreadsheet updates.
                 </div>
                 <button
                   onClick={async () => {
@@ -205,7 +209,7 @@ export default function DashboardLayout() {
                     const token = await reconnectGoogle();
                     if (token) {
                       setSyncStatus("success");
-                      setSyncMessage("Google Synced!");
+                      setSyncMessage("Google Connected!");
                       setTimeout(() => setSyncStatus("idle"), 4000);
                     } else {
                       setSyncStatus("error");
@@ -213,9 +217,9 @@ export default function DashboardLayout() {
                       setTimeout(() => setSyncStatus("idle"), 4000);
                     }
                   }}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9px] uppercase tracking-wide py-1 rounded block text-center cursor-pointer transition shadow-sm"
+                  className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-[9px] uppercase py-1 rounded block text-center cursor-pointer transition"
                 >
-                  Authorize Google Sync
+                  Connect Spreadsheet
                 </button>
               </div>
             )}
