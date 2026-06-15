@@ -80,15 +80,14 @@ export default function DashboardLayout() {
         }
 
         // Auto-sync on reload if the user has an active token
-        // Wait, to prevent infinite loops during dev, let's keep track of if we've synced this session.
-        if (!sessionStorage.getItem("has_auto_synced")) {
+        if (!(window as any).__has_auto_synced) {
+           (window as any).__has_auto_synced = true;
            console.log("Auto-syncing connected spreadsheet on reload...");
            setSyncStatus("syncing");
            setSyncMessage("Auto-syncing roster and criteria...");
            
            try {
              const result = await importSheetsConfirmAndSync(accessToken, sheetId);
-             sessionStorage.setItem("has_auto_synced", "true");
              setSyncStatus("success");
              setSyncMessage(`Synced ${result.studentsCount} students!`);
            } catch(e) {

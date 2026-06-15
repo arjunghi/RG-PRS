@@ -33,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [accessToken, setAccessToken] = useState<string | null>(() => {
-     return sessionStorage.getItem("google_access_token");
+     return localStorage.getItem("google_access_token");
   });
 
   useEffect(() => {
@@ -111,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (credential?.accessToken) {
-      sessionStorage.setItem("google_access_token", credential.accessToken);
+      localStorage.setItem("google_access_token", credential.accessToken);
       setAccessToken(credential.accessToken);
     }
   };
@@ -124,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await signInWithPopup(auth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {
-        sessionStorage.setItem("google_access_token", credential.accessToken);
+        localStorage.setItem("google_access_token", credential.accessToken);
         setAccessToken(credential.accessToken);
         return credential.accessToken;
       }

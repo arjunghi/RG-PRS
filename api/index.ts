@@ -224,7 +224,7 @@ app.post("/api/sheets/sync", async (req, res) => {
 
 app.post("/api/sheets/read", async (req, res) => {
   try {
-    let spreadsheetId = req.body.spreadsheetId;
+    let { spreadsheetId, accessToken } = req.body;
     if (!accessToken || !spreadsheetId) {
       return res.status(400).json({ error: "Missing required parameters (accessToken or spreadsheetId)." });
     }
