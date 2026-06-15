@@ -24,7 +24,7 @@ export default function DashboardLayout() {
         const docRef = doc(db, "settings", "schoolConfig");
         const snap = await getDoc(docRef);
         
-        const defaultId = "1OmKCc9sO-FYeMgECFncxJG_1m8qRCsTp4PvmK-gfEJk";
+        const defaultId = "1vPZTmPBYi_RlCT4O6EnXz2nRPMqV4StZNCnxB1ZhHJM";
         const defaultUrl = `https://docs.google.com/spreadsheets/d/${defaultId}/edit?usp=sharing`;
         
         let currentId = snap.exists() ? snap.data().googleSpreadsheetId : null;

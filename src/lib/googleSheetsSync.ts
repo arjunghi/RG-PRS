@@ -221,39 +221,52 @@ export async function syncAllFirestoreToSheets(accessToken: string, spreadsheetI
   allGrades.forEach(grade => {
     const gradeStudents = students.filter(st => st.gradeLevel === grade);
     
-    const gradeMarksRows = [
-      ["Student Name", "Section", "Subject Name", "Task/Criteria Evaluated", "Evaluation Type", "Score / Grade Code", "Last Updated"],
-      ...gradeStudents.flatMap(st => {
-        const studentScores = scores.filter(sc => sc.studentId === st.id);
-        
-        if (studentScores.length === 0) {
-          return [[
-            st.name || "",
-            st.section || "",
-            "N/A",
-            "No academic or ECA entries yet",
-            "-",
-            "-",
-            "-"
-          ]];
-        }
-
-        return studentScores.map(sc => {
-          const sObj = subjects.find(s => s.id === sc.subjectId);
-          const subjectName = sObj ? sObj.name : (sc.subjectId || "");
-          const taskObj = tasks.find(t => t.id === sc.taskId && t.subjectId === sc.subjectId);
-          const taskLabel = taskObj ? taskObj.name : (sc.taskId || "");
-          const maxMarksLabel = sObj?.type === "eca" ? "Letter Grade (ECA)" : (taskObj ? `Out of ${taskObj.maxMarks}` : "-");
-          return [
-            st.name || "",
-            st.section || "",
-            subjectName,
-            taskLabel,
-            maxMarksLabel,
-            String(sc.score ?? ""),
-            sc.updatedAt ? new Date(sc.updatedAt).toLocaleString() : "N/A"
-          ];
+    // Find all subjects assigned to this grade
+    const gradeSubjects = subjects.filter(s => (s.assignments || []).some((a: any) => a.gradeLevel === grade || a.gradeLevel === "All"));
+    
+    const gradeTaskHeaders: string[] = [];
+    
+    gradeSubjects.forEach(s => {
+      // Find tasks for this subject
+      const sTasks = tasks.filter(t => t.subjectId === s.id);
+      sTasks.forEach(t => {
+        gradeTaskHeaders.push(`${s.name}: ${t.name} (${t.maxMarks})`);
+      });
+      // ECA criteria
+      if(s.type === "eca" && s.ecaCriteria) {
+        s.ecaCriteria.forEach((crit: string) => {
+          gradeTaskHeaders.push(`${s.name}: ${crit} (Grade)`);
         });
+      }
+    });
+
+    const headerRow = ["Student Name", "Section", ...gradeTaskHeaders];
+
+    const gradeMarksRows = [
+      headerRow,
+      ...gradeStudents.map(st => {
+         const row: any[] = [st.name || "", st.section || ""];
+         const stScores = scores.filter(sc => sc.studentId === st.id);
+         
+         // Map scores by {subjectId}_{taskId}
+         const scoreByTask = new Map();
+         stScores.forEach(sc => {
+            scoreByTask.set(`${sc.subjectId}_${sc.taskId}`, String(sc.score ?? ""));
+         });
+
+         // Fill in columns matching gradeTaskHeaders order
+         gradeSubjects.forEach(s => {
+            const sTasks = tasks.filter(t => t.subjectId === s.id);
+            sTasks.forEach(t => {
+               row.push(scoreByTask.get(`${s.id}_${t.id}`) || "");
+            });
+            if(s.type === "eca" && s.ecaCriteria) {
+               s.ecaCriteria.forEach((crit: string) => {
+                  row.push(scoreByTask.get(`${s.id}_${crit}`) || "");
+               });
+            }
+         });
+         return row;
       })
     ];
 

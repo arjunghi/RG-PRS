@@ -258,7 +258,7 @@ export default function ReportsPage() {
          <div className="bg-[#FFFDF7] border-l-4 border-amber-500 rounded-lg shadow-sm p-5 space-y-4">
            <div className="flex items-center text-amber-600 font-bold space-x-2">
              <SettingsIcon className="w-5 h-5" />
-             <h3 className="uppercase text-sm tracking-wide">Gardesheet Marks Allocation</h3>
+             <h3 className="uppercase text-sm tracking-wide">Gradesheet Marks Allocation</h3>
            </div>
            <p className="text-xs text-slate-500">Configure or Assign marks for overall calculations.</p>
            
