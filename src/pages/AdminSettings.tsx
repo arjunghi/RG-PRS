@@ -409,7 +409,7 @@ export default function AdminSettings() {
           </div>
         )}
 
-        <div className="grid md:grid-cols-1 gap-6 items-stretch">
+        <div className="grid md:grid-cols-2 gap-6 items-stretch">
           {/* Linked Spreadsheet Details Or Creation Control */}
           <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col justify-between">
             {config.googleSpreadsheetId ? (
@@ -443,6 +443,12 @@ export default function AdminSettings() {
                     <span>Open Sheet in Drive</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
+                  <button
+                    onClick={handleDisconnectSheet}
+                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-semibold px-3 py-2 rounded-lg transition cursor-pointer"
+                  >
+                    Disconnect
+                  </button>
                 </div>
               </div>
             ) : (
@@ -464,6 +470,38 @@ export default function AdminSettings() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Link Existing Spreadsheet */}
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col justify-between">
+            <div className="space-y-3.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Link Existing Spreadsheet</div>
+              <h3 className="font-semibold text-slate-900">Connect to an Existing Sheets ID</h3>
+              <p className="text-[11px] text-slate-500 leading-normal">
+                Connecting a single Master Sheet for all users requires a backend Service Account configuration. The app will bypass user-specific authentication and write directly using these credentials.
+              </p>
+              
+              <div className="flex gap-2 pt-1.5">
+                <input
+                  type="text"
+                  value={sheetInputId}
+                  onChange={(e) => setSheetInputId(e.target.value)}
+                  placeholder="Paste URL or Spreadsheet ID here..."
+                  className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 flex-1 shrink-0"
+                />
+                <button
+                  onClick={handleLinkExistingSheet}
+                  disabled={isSyncing || !sheetInputId.trim()}
+                  className="bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-semibold text-xs px-4 py-1.5 rounded-lg transition shrink-0 cursor-pointer"
+                >
+                  Link Sheet
+                </button>
+              </div>
+            </div>
+            
+            <div className="text-[10px] text-slate-400 font-medium leading-relaxed mt-4">
+              Note: Make sure your connected Service Account email is added as an 'Editor' on the pasted Google Spreadsheet.
+            </div>
           </div>
         </div>
       </div>

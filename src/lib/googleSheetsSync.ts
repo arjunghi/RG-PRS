@@ -42,8 +42,8 @@ export async function createSpreadsheet(accessToken: string, title: string): Pro
  * Synchronizes all Firestore data into the connected Google Sheet using the secure, optimized Server-side proxy.
  */
 export async function syncAllFirestoreToSheets(accessToken: string, spreadsheetId: string): Promise<void> {
-  if (!spreadsheetId || !accessToken) {
-    throw new Error("Missing Spreadsheet ID or Access Token for synchronization.");
+  if (!spreadsheetId) {
+    throw new Error("Missing Spreadsheet ID for synchronization.");
   }
 
   // 1. Fetch all Firestore data in parallel on the client side
@@ -357,12 +357,12 @@ async function executeQueuedSync() {
  * Triggers background collection synchronization when data changes if active session has OAuth token
  */
 export function triggerLiveSyncInBg(accessToken: string | null, spreadsheetId: string | null) {
-  if (!accessToken || !spreadsheetId) {
-    console.log("Auto-sync skipped: Missing active accessToken or Google Spreadsheet ID connection.");
+  if (!spreadsheetId) {
+    console.log("Auto-sync skipped: Missing Google Spreadsheet ID connection.");
     return;
   }
 
-  lastAccessToken = accessToken;
+  lastAccessToken = accessToken || "";
   lastSpreadsheetId = spreadsheetId;
 
   if (syncTimeout) {
@@ -385,8 +385,8 @@ export async function importSheetsConfirmAndSync(accessToken: string, spreadshee
   scoresCount: number;
   gradeMappingsCount: number;
 }> {
-  if (!spreadsheetId || !accessToken) {
-    throw new Error("Missing Spreadsheet ID or Access token for import.");
+  if (!spreadsheetId) {
+    throw new Error("Missing Spreadsheet ID for import.");
   }
 
   const response = await fetch("/api/sheets/read", {

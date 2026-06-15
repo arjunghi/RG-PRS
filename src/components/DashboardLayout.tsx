@@ -177,61 +177,34 @@ export default function DashboardLayout() {
               ID: {sheetConfig.googleSpreadsheetId}
             </p>
 
-            {accessToken ? (
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span>Google Sheets Connected</span>
-                </span>
-                
-                <button
-                  onClick={async () => {
-                    if (syncStatus === "syncing") return;
-                    setSyncStatus("syncing");
-                    setSyncMessage("Manual Syncing DB...");
-                    try {
-                      const res = await importSheetsConfirmAndSync(accessToken, sheetConfig.googleSpreadsheetId);
-                      setSyncStatus("success");
-                      setSyncMessage(`Synced ${res.studentsCount} Students!`);
-                      setTimeout(() => setSyncStatus("idle"), 4000);
-                    } catch (err) {
-                      setSyncStatus("error");
-                      setSyncMessage("Sync Failed");
-                      setTimeout(() => setSyncStatus("idle"), 4000);
-                    }
-                  }}
-                  className="bg-slate-700 hover:bg-slate-600 hover:text-white text-slate-300 font-semibold px-2 py-0.5 rounded cursor-pointer transition text-[9px]"
-                  title="Force import updates from sheets (Warning: may overwrite manual changes)"
-                >
-                  Pull from sheet
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <div className="text-slate-400 text-[10px] leading-relaxed">
-                  Connect to pull/push spreadsheet updates.
-                </div>
-                <button
-                  onClick={async () => {
-                    setSyncStatus("syncing");
-                    setSyncMessage("Connecting Google...");
-                    const token = await reconnectGoogle();
-                    if (token) {
-                      setSyncStatus("success");
-                      setSyncMessage("Google Connected!");
-                      setTimeout(() => setSyncStatus("idle"), 4000);
-                    } else {
-                      setSyncStatus("error");
-                      setSyncMessage("Auth Failed");
-                      setTimeout(() => setSyncStatus("idle"), 4000);
-                    }
-                  }}
-                  className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-[9px] uppercase py-1 rounded block text-center cursor-pointer transition"
-                >
-                  Connect Spreadsheet
-                </button>
-              </div>
-            )}
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Master Sheet Active</span>
+              </span>
+              
+              <button
+                onClick={async () => {
+                  if (syncStatus === "syncing") return;
+                  setSyncStatus("syncing");
+                  setSyncMessage("Manual Syncing DB...");
+                  try {
+                    const res = await importSheetsConfirmAndSync(accessToken || "", sheetConfig.googleSpreadsheetId);
+                    setSyncStatus("success");
+                    setSyncMessage(`Synced ${res.studentsCount} Students!`);
+                    setTimeout(() => setSyncStatus("idle"), 4000);
+                  } catch (err) {
+                    setSyncStatus("error");
+                    setSyncMessage("Sync Failed");
+                    setTimeout(() => setSyncStatus("idle"), 4000);
+                  }
+                }}
+                className="bg-slate-700 hover:bg-slate-600 hover:text-white text-slate-300 font-semibold px-2 py-0.5 rounded cursor-pointer transition text-[9px]"
+                title="Force import updates from sheets (Warning: may overwrite manual changes)"
+              >
+                Pull from sheet
+              </button>
+            </div>
 
             {syncStatus !== "idle" && (
               <div className={cn(

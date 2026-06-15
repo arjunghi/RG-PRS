@@ -1,9 +1,29 @@
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
+import { JWT } from "google-auth-library";
 
 const app = express();
 
 app.use(express.json());
+
+async function getServiceAccountToken() {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const key = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  if (!email || !key) return null;
+
+  try {
+    const client = new JWT({
+      email,
+      key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    const tokens = await client.authorize();
+    return tokens.access_token;
+  } catch (err) {
+    console.error("Service Account Auth Error:", err);
+    return null;
+  }
+}
 
 // Add Healthcheck endpoint to verify server is active
 app.get("/api/health", (req, res) => {
@@ -66,9 +86,12 @@ app.post("/api/ai/analysis", async (req, res) => {
 // Server-side proxies for Google Sheets API to bypass CORS preflight blocking in the frontend sandbox iframe
 app.post("/api/sheets/create", async (req, res) => {
   try {
-    const { accessToken, title } = req.body;
+    let { accessToken, title } = req.body;
     if (!accessToken) {
-      return res.status(400).json({ error: "Missing Google authorization access token." });
+       accessToken = await getServiceAccountToken();
+    }
+    if (!accessToken) {
+      return res.status(400).json({ error: "Missing Google authorization access token and Service Account not configured." });
     }
 
     const response = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
@@ -109,8 +132,11 @@ app.post("/api/sheets/create", async (req, res) => {
 app.post("/api/sheets/sync", async (req, res) => {
   try {
     let { accessToken, spreadsheetId, data, worksheets } = req.body;
+    if (!accessToken) {
+       accessToken = await getServiceAccountToken();
+    }
     if (!accessToken || !spreadsheetId) {
-      return res.status(400).json({ error: "Missing required parameters (accessToken or spreadsheetId)." });
+      return res.status(400).json({ error: "Missing required parameters (accessToken or spreadsheetId) and Service Account not configured." });
     }
 
     if (spreadsheetId && spreadsheetId.includes("/d/")) {
@@ -225,8 +251,11 @@ app.post("/api/sheets/sync", async (req, res) => {
 app.post("/api/sheets/read", async (req, res) => {
   try {
     let { spreadsheetId, accessToken } = req.body;
+    if (!accessToken) {
+       accessToken = await getServiceAccountToken();
+    }
     if (!accessToken || !spreadsheetId) {
-      return res.status(400).json({ error: "Missing required parameters (accessToken or spreadsheetId)." });
+      return res.status(400).json({ error: "Missing required parameters (accessToken or spreadsheetId) and Service Account not configured." });
     }
     
     // Safety check: if frontend sent full URL accidentally
