@@ -224,104 +224,157 @@ app.post("/api/sheets/read", async (req, res) => {
       return res.status(400).json({ error: "Missing required parameters (accessToken or spreadsheetId)." });
     }
 
-    const ranges = [
-      "Students!A1:Z5000",
-      "Subjects!A1:Z1000",
-      "Tasks!A1:Z5000",
-      "Scores!A1:Z100000",
-      "School Config!A1:Z500"
-    ];
+    // First fetch metadata to get all sheet names
+    const metaResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
+      headers: { "Authorization": `Bearer ${accessToken}` }
+    });
+    if (!metaResponse.ok) {
+      const errText = await metaResponse.text();
+      return res.status(metaResponse.status).json({ error: `Google Sheets API Error (Meta): ${errText}` });
+    }
+    const metaData = await metaResponse.json() as any;
+    const sheetTitles: string[] = (metaData.sheets || []).map((s: any) => s.properties?.title).filter(Boolean);
 
+    if (sheetTitles.length === 0) {
+      return res.json({ students: [], subjects: [], tasks: [], scores: [], gradeMappings: [] });
+    }
+
+    const ranges = sheetTitles.map(t => `${t}!A1:Z5000`);
     const queryParams = ranges.map(r => `ranges=${encodeURIComponent(r)}`).join("&");
+    
     const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${queryParams}`, {
-      headers: {
-        "Authorization": `Bearer ${accessToken}`
-      }
+      headers: { "Authorization": `Bearer ${accessToken}` }
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      return res.status(response.status).json({ error: `Google Sheets API Error: ${errText}` });
+      return res.status(response.status).json({ error: `Google Sheets API Error (Values): ${errText}` });
     }
 
     const data = await response.json() as any;
     const valueRanges = data.valueRanges || [];
 
-    const getValuesForSheet = (sheetName: string): any[][] => {
-      const found = valueRanges.find((vr: any) => vr.range && vr.range.startsWith(sheetName));
+    const getSheetName = (possibleNames: string[]): string | null => {
+      const lowerNames = possibleNames.map(n => n.toLowerCase());
+      const match = sheetTitles.find(t => lowerNames.some(ln => t.toLowerCase().includes(ln)));
+      return match || null;
+    };
+
+    const getValuesForSheet = (name: string | null): any[][] => {
+      if (!name) return [];
+      const found = valueRanges.find((vr: any) => vr.range && vr.range.includes(name));
       return found ? (found.values || []) : [];
     };
 
+    const findColIdx = (headers: string[], possibleObj: string[]): number => {
+      const idx = headers.findIndex(h => possibleObj.some(p => h && typeof h === 'string' && h.toLowerCase().includes(p.toLowerCase())));
+      return idx !== -1 ? idx : -1;
+    };
+
     // 1. Parse Students
-    const studentRows = getValuesForSheet("Students");
+    const studentSheetName = getSheetName(["Students", "Student", "Pupils", "Children"]);
+    const studentRows = getValuesForSheet(studentSheetName);
     const students: any[] = [];
     if (studentRows.length > 1) {
+      const headers = studentRows[0].map((h: any) => String(h || ""));
+      const nameIdx = findColIdx(headers, ["name", "student"]);
+      const gradeIdx = findColIdx(headers, ["grade", "class", "level"]);
+      const secIdx = findColIdx(headers, ["section", "sec"]);
+      const idIdx = findColIdx(headers, ["id", "roll", "sn", "s.n"]);
+      
+      const nI = nameIdx >= 0 ? nameIdx : 1;
+      const gI = gradeIdx >= 0 ? gradeIdx : 2;
+      const sI = secIdx >= 0 ? secIdx : 3;
+      const iI = idIdx >= 0 ? idIdx : 0;
+
       for (let i = 1; i < studentRows.length; i++) {
         const row = studentRows[i];
-        if (!row || row.length === 0 || !row[1]) continue; // Must have name
-        const ecaSportsStr = row[4] || "";
-        const ecaSports = ecaSportsStr ? ecaSportsStr.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
+        if (!row || row.length === 0 || !row[nI]) continue;
+        
         students.push({
-          id: row[0] || null,
-          name: row[1] || "",
-          gradeLevel: row[2] || "",
-          section: row[3] || "",
-          ecaSports: ecaSports,
-          createdAt: row[5] || new Date().toISOString()
+          id: row[iI] ? String(row[iI]) : `student-${Date.now()}-${i}`,
+          name: row[nI] || "",
+          gradeLevel: row[gI] || "",
+          section: row[sI] || "",
+          ecaSports: [],
+          createdAt: new Date().toISOString()
         });
       }
     }
 
     // 2. Parse Subjects
-    const subjectRows = getValuesForSheet("Subjects");
+    const subjectSheetName = getSheetName(["Subjects", "Subject", "Courses", "Course"]);
+    const subjectRows = getValuesForSheet(subjectSheetName);
     const subjects: any[] = [];
     if (subjectRows.length > 1) {
+      const headers = subjectRows[0].map((h: any) => String(h || ""));
+      const nameIdx = findColIdx(headers, ["name", "subject", "course"]);
+      const typeIdx = findColIdx(headers, ["type", "category"]);
+      const ecaIdx = findColIdx(headers, ["eca", "criteria"]);
+      const idIdx = findColIdx(headers, ["id", "code"]);
+      
+      const nI = nameIdx >= 0 ? nameIdx : 1;
+      const tI = typeIdx >= 0 ? typeIdx : 2;
+      const eI = ecaIdx >= 0 ? ecaIdx : 3;
+      const iI = idIdx >= 0 ? idIdx : 0;
+
       for (let i = 1; i < subjectRows.length; i++) {
         const row = subjectRows[i];
-        if (!row || row.length === 0 || !row[1]) continue; // Must have name
-        const ecaCriteriaStr = row[3] || "";
-        const ecaCriteria = ecaCriteriaStr ? ecaCriteriaStr.split(",").map((c: string) => c.trim()).filter(Boolean) : [];
+        if (!row || row.length === 0 || !row[nI]) continue;
         
-        let assignments: any[] = [];
-        try {
-          if (row[4]) {
-            assignments = JSON.parse(row[4]);
-          }
-        } catch (_) {}
+        const typeStr = (row[tI] || "academic").toLowerCase();
+        const typeVal = typeStr.includes("eca") ? "eca" : "academic";
+
+        const ecaCriteriaStr = row[eI] || "";
+        const ecaCriteria = ecaCriteriaStr ? ecaCriteriaStr.split(/[,|]/).map((c: string) => c.trim()).filter(Boolean) : [];
 
         subjects.push({
-          id: row[0] || ("subject-" + row[1]).toLowerCase().replace(/\s+/g, '-'),
-          name: row[1],
-          type: row[2] || "academic",
+          id: row[iI] ? String(row[iI]) : ("subject-" + row[nI]).toLowerCase().replace(/\s+/g, '-'),
+          name: row[nI],
+          type: typeVal,
           ecaCriteria: ecaCriteria,
-          assignments: Array.isArray(assignments) ? assignments : []
+          assignments: []
         });
       }
     }
 
-    // 3. Parse Tasks
-    const taskRows = getValuesForSheet("Tasks");
+    // 3. Parse School Config (Grades)
+    const configSheetName = getSheetName(["School Config", "Config", "Settings", "Grades", "Classes"]);
+    const configRows = getValuesForSheet(configSheetName);
+    const gradeMappings: any[] = [];
+    if (configRows.length > 1) {
+      const headers = configRows[0].map((h: any) => String(h || ""));
+      const gradeIdx = findColIdx(headers, ["grade", "class"]);
+      const secIdx = findColIdx(headers, ["section"]);
+      
+      const gI = gradeIdx >= 0 ? gradeIdx : 0;
+      const sI = secIdx >= 0 ? secIdx : 1;
+
+      for (let i = 1; i < configRows.length; i++) {
+        const row = configRows[i];
+        if (!row || !row[gI]) continue;
+        const sectionsStr = row[sI] || "";
+        const sections = sectionsStr ? sectionsStr.split(/[,|]/).map((s: string) => s.trim()).filter(Boolean) : [];
+        gradeMappings.push({
+          grade: String(row[gI]).trim(),
+          sections: sections
+        });
+      }
+    }
+
+    // Attempt to parse standard Tabs if they exist
+    const taskSheetName = getSheetName(["Tasks", "Assignments"]);
+    const taskRows = getValuesForSheet(taskSheetName);
     const tasks: any[] = [];
     if (taskRows.length > 1) {
       for (let i = 1; i < taskRows.length; i++) {
         const row = taskRows[i];
-        if (!row || row.length === 0 || !row[1]) continue; // Must have name
-        // Filter out virtual eca rubric rows
-        if (row[3] === "ECA") {
-          continue;
-        }
-
-        const rawMaxMarks = row[2] || "";
-        let maxMarks: any = rawMaxMarks;
-        if (rawMaxMarks !== "" && !isNaN(Number(rawMaxMarks))) {
-          maxMarks = Number(rawMaxMarks);
-        }
-
+        if (!row || !row[1] || row[3] === "ECA") continue;
         tasks.push({
-          id: row[0],
+          id: row[0] || `task-${Date.now()}-${i}`,
           name: row[1],
-          maxMarks: maxMarks,
-          taskType: row[3] || "Homework",
+          maxMarks: Number(row[2]) || 10,
+          taskType: row[3] || "HW",
           term: row[4] || "All",
           date: row[5] || "",
           subjectId: row[6] || "",
@@ -331,43 +384,21 @@ app.post("/api/sheets/read", async (req, res) => {
       }
     }
 
-    // 4. Parse Scores
-    const scoreRows = getValuesForSheet("Scores");
+    // Attempt to extract Scores if standard Scores tab exists
+    const scoreSheetName = getSheetName(["Scores", "Marks"]);
+    const scoreRows = getValuesForSheet(scoreSheetName);
     const scores: any[] = [];
     if (scoreRows.length > 1) {
       for (let i = 1; i < scoreRows.length; i++) {
         const row = scoreRows[i];
-        if (!row || row.length < 5) continue; // Must have at least studentId, taskId, subjectId, score
-        
-        const rawScore = row[4];
-        let score: any = rawScore;
-        if (rawScore !== "" && !isNaN(Number(rawScore))) {
-          score = Number(rawScore);
-        }
-
+        if (!row || row.length < 5) continue;
         scores.push({
-          id: row[0],
+          id: row[0] || `score-${Date.now()}-${i}`,
           studentId: row[1],
           taskId: row[2],
           subjectId: row[3],
-          score: score,
+          score: row[4] !== "" && !isNaN(Number(row[4])) ? Number(row[4]) : row[4],
           updatedAt: row[5] || new Date().toISOString()
-        });
-      }
-    }
-
-    // 5. Parse School Config
-    const configRows = getValuesForSheet("School Config");
-    const gradeMappings: any[] = [];
-    if (configRows.length > 1) {
-      for (let i = 1; i < configRows.length; i++) {
-        const row = configRows[i];
-        if (!row || !row[0]) continue;
-        const sectionsStr = row[1] || "";
-        const sections = sectionsStr ? sectionsStr.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
-        gradeMappings.push({
-          grade: row[0].trim(),
-          sections: sections
         });
       }
     }
