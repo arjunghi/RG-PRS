@@ -70,9 +70,15 @@ export default function DashboardLayout() {
         const snap = await getDoc(docRef);
         if (!snap.exists()) return;
         
-        const sheetId = snap.data().googleSpreadsheetId;
+        let sheetId = snap.data().googleSpreadsheetId;
         if (!sheetId) return;
         
+        // Extract ID if it's accidentally a URL
+        if (sheetId && sheetId.includes("/d/")) {
+          const parts = sheetId.split("/d/");
+          if (parts[1]) sheetId = parts[1].split("/")[0];
+        }
+
         // Auto-sync on reload if the user has an active token
         // Wait, to prevent infinite loops during dev, let's keep track of if we've synced this session.
         if (!sessionStorage.getItem("has_auto_synced")) {

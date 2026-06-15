@@ -108,9 +108,14 @@ app.post("/api/sheets/create", async (req, res) => {
 
 app.post("/api/sheets/sync", async (req, res) => {
   try {
-    const { accessToken, spreadsheetId, data, worksheets } = req.body;
+    let { accessToken, spreadsheetId, data, worksheets } = req.body;
     if (!accessToken || !spreadsheetId) {
       return res.status(400).json({ error: "Missing required parameters (accessToken or spreadsheetId)." });
+    }
+
+    if (spreadsheetId && spreadsheetId.includes("/d/")) {
+      const parts = spreadsheetId.split("/d/");
+      if (parts[1]) spreadsheetId = parts[1].split("/")[0];
     }
 
     // Build worksheets mapping dynamically (supports both list formats gracefully)
@@ -219,9 +224,15 @@ app.post("/api/sheets/sync", async (req, res) => {
 
 app.post("/api/sheets/read", async (req, res) => {
   try {
-    const { accessToken, spreadsheetId } = req.body;
+    let spreadsheetId = req.body.spreadsheetId;
     if (!accessToken || !spreadsheetId) {
       return res.status(400).json({ error: "Missing required parameters (accessToken or spreadsheetId)." });
+    }
+    
+    // Safety check: if frontend sent full URL accidentally
+    if (spreadsheetId && spreadsheetId.includes("/d/")) {
+      const parts = spreadsheetId.split("/d/");
+      if (parts[1]) spreadsheetId = parts[1].split("/")[0];
     }
 
     // First fetch metadata to get all sheet names
@@ -402,6 +413,55 @@ app.post("/api/sheets/read", async (req, res) => {
         });
       }
     }
+
+    // Try parsing Matrix tabs if any (e.g. "Grade 1 Matrix")
+    const matrixSheets = sheetTitles.filter(t => t.toLowerCase().includes("matrix"));
+    matrixSheets.forEach(mTitle => {
+      const gRows = getValuesForSheet(mTitle);
+      if (gRows.length > 1) {
+        const headers = gRows[0];
+        // headers: ["Student Name", "Section", "SubjectName: TaskName (10)", "SubjectName: Criteria (Grade)"]
+        for (let i = 1; i < gRows.length; i++) {
+            const row = gRows[i];
+            const stuName = row[0];
+            const stuId = students.find(s => s.name === stuName)?.id;
+            if (!stuId) continue;
+
+            for (let c = 2; c < headers.length; c++) {
+               const cellVal = row[c];
+               if (cellVal === "" || cellVal === undefined) continue;
+               const headerLabel = headers[c];
+               if (!headerLabel) continue;
+
+               // naive parsing of "SubjectName: TaskName (10)" -> finding subject and task
+               const colonIdx = headerLabel.indexOf(":");
+               if (colonIdx === -1) continue;
+               const subjName = headerLabel.substring(0, colonIdx).trim();
+               const sub = subjects.find(s => s.name === subjName);
+               if (!sub) continue;
+
+               const restLabel = headerLabel.substring(colonIdx + 1).split("(")[0].trim();
+               // check if it's task or eca
+               let tId = restLabel;
+               if (sub.type === "eca") {
+                  if (!sub.ecaCriteria.includes(restLabel)) continue; // avoid missing ones
+               } else {
+                  const tk = tasks.find(t => t.subjectId === sub.id && t.name === restLabel);
+                  if (tk) tId = tk.id;
+               }
+
+               scores.push({
+                  id: `score-${Date.now()}-${stuId}-${tId}-${c}`,
+                  studentId: stuId,
+                  taskId: tId,
+                  subjectId: sub.id,
+                  score: cellVal !== "" && !isNaN(Number(cellVal)) ? Number(cellVal) : cellVal,
+                  updatedAt: new Date().toISOString()
+               });
+            }
+        }
+      }
+    });
 
     res.json({
       students,
