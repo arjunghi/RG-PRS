@@ -196,19 +196,6 @@ export default function TaskLedger() {
     <div className="space-y-6">
        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Task Ledger</h2>
-          {config.googleSpreadsheetId && (
-            <a 
-              href={config.googleSpreadsheetUrl} 
-              target="_blank" 
-              referrerPolicy="no-referrer"
-              rel="noreferrer" 
-              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-bold border border-emerald-100 flex items-center space-x-1 transition cursor-pointer"
-              title="Click to view live spreadsheet"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Sheets Sync Active</span>
-            </a>
-          )}
          <div className="flex gap-2 flex-wrap">
             <select value={activeGradeLevel} onChange={e => {setActiveGradeLevel(e.target.value); setActiveSection("All");}} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                {uniqueGrades.map(g => <option key={g} value={g as string}>{g === "All" ? "All Grades" : g}</option>)}

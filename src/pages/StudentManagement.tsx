@@ -195,19 +195,6 @@ export default function StudentManagement() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
           <h2 className="text-xl font-bold text-slate-900">Student Directory & ECA</h2>
-          {config.googleSpreadsheetId && (
-            <a 
-              href={config.googleSpreadsheetUrl} 
-              target="_blank" 
-              referrerPolicy="no-referrer"
-              rel="noreferrer" 
-              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-bold border border-emerald-100 flex items-center space-x-1 transition cursor-pointer"
-              title="Click to view live spreadsheet"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Sheets Sync Active</span>
-            </a>
-          )}
         </div>
         {isAdmin && (
           <div className="flex items-center space-x-3">

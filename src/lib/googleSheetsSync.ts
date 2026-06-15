@@ -41,11 +41,7 @@ export async function createSpreadsheet(accessToken: string, title: string): Pro
 /**
  * Synchronizes all Firestore data into the connected Google Sheet using the secure, optimized Server-side proxy.
  */
-export async function syncAllFirestoreToSheets(accessToken: string, spreadsheetId: string): Promise<void> {
-  if (!spreadsheetId) {
-    throw new Error("Missing Spreadsheet ID for synchronization.");
-  }
-
+export async function syncAllFirestoreToSheets(accessToken: string, spreadsheetId: string = ""): Promise<void> {
   // 1. Fetch all Firestore data in parallel on the client side
   const [studentsSnap, subjectsSnap, tasksSnap, scoresSnap, configSnap] = await Promise.all([
     getDocs(collection(db, "students")),
@@ -356,14 +352,9 @@ async function executeQueuedSync() {
 /**
  * Triggers background collection synchronization when data changes if active session has OAuth token
  */
-export function triggerLiveSyncInBg(accessToken: string | null, spreadsheetId: string | null) {
-  if (!spreadsheetId) {
-    console.log("Auto-sync skipped: Missing Google Spreadsheet ID connection.");
-    return;
-  }
-
+export function triggerLiveSyncInBg(accessToken: string | null, spreadsheetId: string | null = null) {
   lastAccessToken = accessToken || "";
-  lastSpreadsheetId = spreadsheetId;
+  lastSpreadsheetId = spreadsheetId || "";
 
   if (syncTimeout) {
     clearTimeout(syncTimeout);
@@ -378,17 +369,13 @@ export function triggerLiveSyncInBg(accessToken: string | null, spreadsheetId: s
 /**
  * Reads all data from the connected Spreadsheet worksheets and populates them into Firestore
  */
-export async function importSheetsConfirmAndSync(accessToken: string, spreadsheetId: string): Promise<{
+export async function importSheetsConfirmAndSync(accessToken: string, spreadsheetId: string = ""): Promise<{
   studentsCount: number;
   subjectsCount: number;
   tasksCount: number;
   scoresCount: number;
   gradeMappingsCount: number;
 }> {
-  if (!spreadsheetId) {
-    throw new Error("Missing Spreadsheet ID for import.");
-  }
-
   const response = await fetch("/api/sheets/read", {
     method: "POST",
     headers: {

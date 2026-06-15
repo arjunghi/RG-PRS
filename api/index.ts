@@ -132,6 +132,9 @@ app.post("/api/sheets/create", async (req, res) => {
 app.post("/api/sheets/sync", async (req, res) => {
   try {
     let { accessToken, spreadsheetId, data, worksheets } = req.body;
+    if (!spreadsheetId) {
+      spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+    }
     if (!accessToken) {
        accessToken = await getServiceAccountToken();
     }
@@ -251,6 +254,9 @@ app.post("/api/sheets/sync", async (req, res) => {
 app.post("/api/sheets/read", async (req, res) => {
   try {
     let { spreadsheetId, accessToken } = req.body;
+    if (!spreadsheetId) {
+      spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+    }
     if (!accessToken) {
        accessToken = await getServiceAccountToken();
     }
