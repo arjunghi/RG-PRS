@@ -80,7 +80,8 @@ export default function DashboardLayout() {
 
         <div className="p-5 border-t border-slate-800">
           <div className="text-xs text-slate-400 opacity-80 uppercase mb-1">{user?.appRole} LOGGED IN</div>
-          <div className="text-sm text-white truncate mb-4">{user?.email}</div>
+          <div className="text-sm font-semibold text-white truncate">{user?.displayName || user?.email}</div>
+          <div className="text-[11px] text-slate-400 truncate mb-4">{user?.displayName ? user?.email : ""}</div>
           <button 
             onClick={signOut}
             className="w-full flex items-center justify-center space-x-2 text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-lg transition-all"

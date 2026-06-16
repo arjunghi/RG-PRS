@@ -16,6 +16,7 @@ export default function AdminSettings() {
   const [newEca, setNewEca] = useState("");
   const [ecaCriteria, setEcaCriteria] = useState<string[]>(["", "", "", "", ""]);
   
+  const [newTeacherName, setNewTeacherName] = useState("");
   const [newTeacherEmail, setNewTeacherEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("teacher");
   const [newGrade, setNewGrade] = useState("");
@@ -68,16 +69,17 @@ export default function AdminSettings() {
 
   const addInvitedTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(!newTeacherEmail) return;
+    if(!newTeacherEmail || !newTeacherName.trim()) return;
     try {
       const email = newTeacherEmail.toLowerCase().trim();
       await setDoc(doc(db, "users", email), {
         email: email,
-        name: email, // Placeholder until they sign in
+        name: newTeacherName.trim(),
         role: newUserRole,
         status: "approved",
         createdAt: new Date().toISOString()
       });
+      setNewTeacherName("");
       setNewTeacherEmail("");
       setNewUserRole("teacher");
     } catch(err) {
@@ -418,11 +420,36 @@ export default function AdminSettings() {
       </div>
 
       <div>
-        <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
-          <h2 className="text-xl font-bold text-slate-900">Platform Users & Roles</h2>
-          <form onSubmit={addInvitedTeacher} className="flex space-x-2">
-            <input type="email" value={newTeacherEmail} onChange={e => setNewTeacherEmail(e.target.value)} placeholder="Email Address..." className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-64" required />
-            <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+        <div className="mb-6 bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+            Pre-enroll & Pre-approve New User
+          </h2>
+          <p className="text-xs text-slate-500">
+            Keep full name, email and role for secure institutional access. Pre-enrolled users login seamlessly with Google, completely bypassing manual request screen. Grade and subject access is assigned below.
+          </p>
+          <form onSubmit={addInvitedTeacher} className="flex flex-wrap gap-2 pt-1">
+            <input 
+              type="text" 
+              value={newTeacherName} 
+              onChange={e => setNewTeacherName(e.target.value)} 
+              placeholder="User Full Name..." 
+              className="border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-56" 
+              required 
+            />
+            <input 
+              type="email" 
+              value={newTeacherEmail} 
+              onChange={e => setNewTeacherEmail(e.target.value)} 
+              placeholder="User Email address..." 
+              className="border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-64" 
+              required 
+            />
+            <select 
+              value={newUserRole} 
+              onChange={e => setNewUserRole(e.target.value)} 
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white w-full sm:w-40"
+            >
                <option value="guest">Guest</option>
                <option value="student">Student</option>
                <option value="staff">Staff</option>
@@ -431,17 +458,26 @@ export default function AdminSettings() {
                <option value="eca_teacher">ECA Teacher</option>
                <option value="admin">Admin</option>
             </select>
-            <button type="submit" className="bg-slate-900 hover:bg-black transition text-white font-semibold text-sm px-4 py-1.5 rounded-lg">Add/Pre-approve User</button>
+            <button 
+              type="submit" 
+              className="bg-slate-900 hover:bg-black transition text-white font-semibold text-sm px-5 py-2 rounded-lg cursor-pointer"
+            >
+              Add/Pre-enroll User
+            </button>
           </form>
+        </div>
+
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-slate-900">Enrolled Users Registry</h2>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-sm">
            <table className="w-full text-left text-[13px] whitespace-nowrap">
               <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600">
                  <tr>
                    <th className="px-4 py-3">Email</th>
-                   <th className="px-4 py-3">Name</th>
+                   <th className="px-4 py-3">Full Name</th>
                    <th className="px-4 py-3">Role</th>
-                   <th className="px-4 py-3">Requested Profile</th>
+                   <th className="px-4 py-3">Grade &amp; Subject Access</th>
                    <th className="px-4 py-3">Status</th>
                  </tr>
               </thead>
@@ -465,9 +501,25 @@ export default function AdminSettings() {
                             <option value="admin">Admin</option>
                         </select>
                       </td>
-                      <td className="px-4 py-2.5 text-xs text-slate-500">
-                        {u.requestedGrade && <span className="block">Grade: {u.requestedGrade}</span>}
-                        {u.requestedSubject && <span className="block">Subj: {u.requestedSubject}</span>}
+                      <td className="px-4 py-2.5">
+                        <div className="flex flex-wrap gap-1 max-w-sm">
+                          {(() => {
+                             const matched = subjects.flatMap((s: any) => 
+                                (s.assignments || [])
+                                  .filter((a: any) => String(a.teacherEmail || "").toLowerCase() === String(u.email || "").toLowerCase())
+                                  .map((a: any) => `${s.name} (${a.gradeLevel} - ${a.section})`)
+                             );
+                             return matched.length > 0 ? (
+                                matched.map((ast: string, i: number) => (
+                                   <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-100">
+                                      {ast}
+                                   </span>
+                                ))
+                             ) : (
+                                <span className="text-slate-400 italic text-xs">No classes assigned</span>
+                             );
+                          })()}
+                        </div>
                       </td>
                       <td className="px-4 py-2.5 flex items-center space-x-2">
                         <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${

@@ -1,245 +1,109 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../lib/AuthContext";
 import { Navigate } from "react-router-dom";
-import { LogOut, Send, Clock, AlertCircle } from "lucide-react";
-import { db } from "../lib/firebaseClient";
-import { doc, getDoc, collection, getDocs, setDoc } from "firebase/firestore";
+import { LogOut, ShieldX, RefreshCw, Mail, AlertTriangle } from "lucide-react";
 
 export default function RegistrationPage() {
   const { user, signOut, loading } = useAuth();
-  const [role, setRole] = useState("teacher");
-  const [grade, setGrade] = useState("");
-  const [subject, setSubject] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  const [config, setConfig] = useState<any>({ grades: [], subjects: [] });
+  const [isChecking, setIsChecking] = useState(false);
 
-  useEffect(() => {
-    // Load config for grades/subjects dropdowns if role is teacher
-    if (role === "teacher") {
-      const loadData = async () => {
-        try {
-          const docRef = doc(db, "settings", "schoolConfig");
-          const snap = await getDoc(docRef);
-          let gradesList: string[] = [];
-          if (snap.exists()) {
-            gradesList = snap.data().gradeMappings?.map((g: any) => g.grade) || [];
-          }
-          
-          const subjSnap = await getDocs(collection(db, "subjects"));
-          const subjectsList = subjSnap.docs.map(d => d.data().name).filter(Boolean);
-          
-          setConfig({ grades: gradesList, subjects: Array.from(new Set(subjectsList)) });
-        } catch (err) {
-          console.error("Failed to load school config", err);
-        }
-      };
-      
-      loadData();
-    }
-  }, [role]);
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
+        <p className="text-sm font-medium tracking-widest text-slate-400 animate-pulse">VERIFYING credentials...</p>
+      </div>
+    );
+  }
 
-  if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (user.status === "approved") return <Navigate to="/" replace />;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitError("");
-
-    // Optional email check
-    // if (!user.email?.endsWith("@rajarshigurukul.edu.np")) {
-    //  setSubmitError("You must use a @rajarshigurukul.edu.np email address.");
-    //  return;
-    // }
-
-    setIsSubmitting(true);
-    try {
-      const userRef = doc(db, "users", user.uid);
-      const snap = await getDoc(userRef);
-      
-      const updateData: any = {
-        role,
-        requestedGrade: role === "teacher" ? grade : null,
-        requestedSubject: role === "teacher" ? subject : null,
-        status: "pending",
-        requestedAt: new Date().toISOString()
-      };
-      
-      if (!snap.exists()) {
-         await setDoc(userRef, {
-           ...updateData,
-           email: user.email,
-           name: user.displayName || user.email,
-           createdAt: new Date().toISOString()
-         });
-      } else {
-         await updateDoc(userRef, updateData);
-      }
-      
-      // Optionally update email-keyed doc if needed
-      if (user.email) {
-        const emailRef = doc(db, "users", user.email);
-        const emailSnap = await getDoc(emailRef);
-        if (emailSnap.exists()) {
-           await updateDoc(emailRef, updateData);
-        }
-      }
-      
-      // Update local storage status
-      localStorage.setItem(`app_user_role_${user.uid}_status`, "pending");
-      localStorage.setItem(`app_user_role_${user.uid}`, role);
-
-      // Force page reload to sync context
+  const handleCheckStatus = () => {
+    setIsChecking(true);
+    setTimeout(() => {
+      setIsChecking(false);
       window.location.reload();
-    } catch (err: any) {
-      console.error(err);
-      setSubmitError(err.message || "Failed to submit request.");
-      setIsSubmitting(false);
-    }
+    }, 1200);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-8 space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-6 relative overflow-hidden select-none">
+      {/* Visual background ambient glow circles */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl" />
+
+      <div className="w-full max-w-lg bg-slate-900/80 border border-slate-800/80 backdrop-blur-md rounded-2xl shadow-2xl p-8 text-center space-y-8 relative z-10 transition-all">
         
-        {user.status === "pending" ? (
-          <div className="text-center space-y-4">
-             <div className="mx-auto w-16 h-16 bg-blue-50 text-blue-500 flex items-center justify-center rounded-full mb-2">
-                <Clock className="w-8 h-8 animate-pulse" />
-             </div>
-             <h2 className="text-xl font-bold text-slate-900">Request Pending</h2>
-             <p className="text-sm font-medium text-slate-600">
-               Your access request is currently pending administrator approval. We will notify you once arjun@rajarshigurukul.edu.np reviews your request.
-             </p>
-             <button
-                onClick={signOut}
-                className="mt-6 inline-flex items-center space-x-2 text-sm text-slate-500 hover:text-slate-800 font-semibold"
-             >
-                <LogOut className="w-4 h-4" />
-                <span>Sign Out</span>
-             </button>
+        {/* Animated Restriced Access Lock Graphic */}
+        <div className="flex flex-col items-center">
+          <div className="w-16 h-16 bg-red-950/40 border border-red-500/30 text-red-500 flex items-center justify-center rounded-2xl mb-4 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+            <ShieldX className="w-8 h-8" />
           </div>
-        ) : (
-          <>
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Complete Profile</h1>
-              <p className="text-slate-500 font-medium text-sm mt-2">
-                Select your role to request access to the system.
-              </p>
+          <span className="text-red-500 text-xs font-bold tracking-widest uppercase bg-red-950/60 border border-red-900/50 px-3 py-1 rounded-full">
+            RESTRICTED PORTAL
+          </span>
+        </div>
+
+        {/* Title and Explanation */}
+        <div className="space-y-3">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Access Pre-Enrolled Only</h1>
+          <p className="text-slate-400 font-medium text-sm max-w-sm mx-auto leading-relaxed">
+            Welcome to <span className="text-white font-semibold">RG PRS</span>. This gateway is restricted to pre-authorized administrative staff and educators of Rajarshi Gurukul.
+          </p>
+        </div>
+
+        {/* Badged current user email */}
+        <div className="bg-slate-950/80 border border-slate-800/60 rounded-xl p-4 flex items-center justify-between gap-3 text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-slate-800 text-slate-400 flex items-center justify-center rounded-lg">
+              <Mail className="w-4 h-4" />
             </div>
+            <div className="overflow-hidden">
+              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">SIGNED IN AS</p>
+              <p className="text-sm font-semibold text-slate-200 truncate">{user.email}</p>
+            </div>
+          </div>
+          <span className="text-[10px] font-bold uppercase py-1 px-2.5 bg-amber-950/50 border border-amber-500/30 text-amber-500 rounded">
+            NOT APPROVED
+          </span>
+        </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Select Role</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                  required
-                >
-                  <option value="teacher">Teacher</option>
-                  <option value="incharge">Incharge</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
+        {/* Action instruction list */}
+        <div className="text-xs text-left text-slate-400 bg-slate-950/40 border border-slate-800/20 rounded-xl p-4 space-y-2.5 leading-relaxed">
+          <p className="font-bold text-slate-300 text-[11px] uppercase tracking-wide flex items-center gap-1.5 mb-1 text-red-400">
+            <AlertTriangle className="w-3.5 h-3.5" /> Core Security Instruction
+          </p>
+          <p>
+            1. Your school email address must be pre-enrolled directly by the Administrator prior to logging in.
+          </p>
+          <p>
+            2. The Administrator (arjun@rajarshigurukul.edu.np) is responsible for setting your full name, email address, and assigning the grades/subjects you have grading authority for.
+          </p>
+          <p>
+            3. Once enrolled, your portal starts automatically upon clicking <span className="text-blue-400 font-semibold cursor-pointer" onClick={handleCheckStatus}>Check Authorization Status</span>.
+          </p>
+        </div>
 
-              {role === "teacher" && (
-                <div className="space-y-4 border-t border-slate-100 pt-4 mt-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase">Teaching Profile</p>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Primary Grade Taught</label>
-                    <select
-                      value={grade}
-                      onChange={(e) => setGrade(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      // required
-                    >
-                      <option value="" disabled>Select a grade</option>
-                      {config.grades.length > 0 ? (
-                        config.grades.map((g: string) => <option key={g} value={g}>{g}</option>)
-                      ) : (
-                        <>
-                          <option value="Grade 1">Grade 1</option>
-                          <option value="Grade 2">Grade 2</option>
-                          <option value="Grade 3">Grade 3</option>
-                          <option value="Grade 4">Grade 4</option>
-                          <option value="Grade 5">Grade 5</option>
-                          <option value="Grade 6">Grade 6</option>
-                          <option value="Grade 7">Grade 7</option>
-                          <option value="Grade 8">Grade 8</option>
-                          <option value="Grade 9">Grade 9</option>
-                          <option value="Grade 10">Grade 10</option>
-                        </>
-                      )}
-                      <option value="Multiple">Multiple Grades</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Primary Subject</label>
-                    <input
-                      type="text"
-                      list="subjectsList"
-                      value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
-                      placeholder="e.g. Science"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      // required
-                    />
-                    <datalist id="subjectsList">
-                       {config.subjects.length > 0 ? (
-                         config.subjects.map((s: string) => <option key={s} value={s} />)
-                       ) : (
-                         <>
-                           <option value="Math" />
-                           <option value="Science" />
-                           <option value="English" />
-                           <option value="Nepali" />
-                           <option value="Social Studies" />
-                           <option value="Computer" />
-                           <option value="ECA" />
-                         </>
-                       )}
-                    </datalist>
-                  </div>
-                </div>
-              )}
+        {/* Interactive Action Controls */}
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <button
+            onClick={handleCheckStatus}
+            disabled={isChecking}
+            className="flex-1 bg-white hover:bg-slate-100 disabled:bg-slate-300 disabled:text-slate-600 text-slate-950 px-6 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 shadow-[0_4px_12px_rgba(255,255,255,0.05)] active:scale-[0.98]"
+          >
+            <RefreshCw className={`w-4 h-4 ${isChecking ? "animate-spin" : ""}`} />
+            <span>{isChecking ? "Verifying Status..." : "Verify Access Status"}</span>
+          </button>
 
-              {submitError && (
-                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-lg flex items-start gap-2">
-                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                   <span>{submitError}</span>
-                </div>
-              )}
+          <button
+            onClick={signOut}
+            className="bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 hover:text-white px-6 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 active:scale-[0.98]"
+          >
+            <LogOut className="w-4 h-4 text-slate-400" />
+            <span>Log Out</span>
+          </button>
+        </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full mt-6 bg-slate-900 hover:bg-black disabled:bg-slate-500 text-white px-6 py-3 rounded-xl text-sm font-semibold flex items-center justify-center space-x-2 transition-all shadow-md focus:ring-4 focus:ring-slate-200 outline-none"
-              >
-                {isSubmitting ? (
-                  <span>Submitting...</span>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>Request Access</span>
-                  </>
-                )}
-              </button>
-              
-              <div className="text-center">
-                 <button
-                    type="button"
-                    onClick={signOut}
-                    className="inline-flex items-center space-x-2 text-xs text-slate-400 hover:text-slate-600 font-semibold"
-                 >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Cancel & Sign Out</span>
-                 </button>
-              </div>
-            </form>
-          </>
-        )}
       </div>
     </div>
   );

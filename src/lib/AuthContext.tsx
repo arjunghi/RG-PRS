@@ -73,9 +73,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let userSnap = await getDoc(userDocRef);
           
           let targetDocRef = userDocRef;
+          const emailKey = email.toLowerCase().trim();
           
-          if (!userSnap.exists() && email) {
-             const emailDocRef = doc(db, "users", email);
+          if (!userSnap.exists() && emailKey) {
+             const emailDocRef = doc(db, "users", emailKey);
              const emailSnap = await getDoc(emailDocRef);
              if (emailSnap.exists()) {
                 userSnap = emailSnap;
@@ -96,11 +97,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              }
           }
           
+          let displayName = firebaseUser.displayName || email;
           if (!userSnap.exists()) {
              // Create initial profile
              await setDoc(targetDocRef, {
-               email: email,
-               name: firebaseUser.displayName || email,
+               email: emailKey,
+               name: displayName,
                role: String(appRole),
                status: String(status),
                createdAt: new Date().toISOString()
@@ -109,12 +111,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              const data = userSnap.data();
              appRole = data.role || appRole;
              status = data.status || status;
+             displayName = data.name || displayName;
           }
           
           // Cache verified role and update user state if changed
           localStorage.setItem(cacheKey, appRole);
           localStorage.setItem(`${cacheKey}_status`, status);
-          const updatedUser = { ...enrichedUser, appRole, status } as AppUser;
+          const updatedUser = { ...enrichedUser, appRole, status, displayName } as AppUser;
           setUser(updatedUser);
         } catch (err) {
           console.warn("Profile sync from Firebase failed. Using fallback role:", appRole, err);
