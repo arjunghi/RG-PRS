@@ -78,10 +78,62 @@ export default function DashboardHome() {
 
   return (
     <div className="space-y-8">
-      <header className="mb-2">
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome back, {user?.displayName?.split(" ")[0] || "Educator"}</h2>
+      <header className="mb-6">
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome back, {user?.displayName?.split(" ")[0] || "User"}</h2>
         <p className="text-sm font-medium text-slate-500 mt-1">Here's your high-level overview of the academic progress data.</p>
       </header>
+
+      {/* Top Standard Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {[
+          { label: "Active Subjects", val: stats.subjects, sub: "Running term", subColor: "text-blue-500" },
+          { label: "Total Students Mapped", val: stats.students, sub: "+12% vs last term", subColor: "text-green-500" },
+          { label: "Total Assessment Tasks", val: stats.tasks, sub: "Pending grading", subColor: "text-amber-500" },
+        ].map((m, i) => (
+          <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-1 shadow-sm">
+             <span className="text-xs text-slate-500 font-medium uppercase tracking-wide">{m.label}</span>
+             <div className="flex items-baseline gap-2 mt-1">
+               <span className="text-2xl font-bold text-slate-900">{m.val}</span>
+               <span className={`text-[11px] font-semibold ${m.subColor}`}>{m.sub}</span>
+             </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 pt-2">
+          {/* Main Dashboard Panel - Quadrants Component can go inside here or outside */}
+          <div className="col-span-1 lg:col-span-2 space-y-5">
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm p-6 flex flex-col justify-center items-center text-center min-h-[35vh]">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+                  <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </div>
+                <h3 className="text-slate-800 font-bold mb-2">More dashboard analytics to load...</h3>
+                <p className="text-sm font-medium text-slate-400 max-w-sm">
+                  Navigate to individual tabs on the left to track student ledgers, allocate marks, and leverage AI generated remark pipelines.
+                </p>
+              </div>
+          </div>
+
+          {/* AI Academic Insights */}
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-5 shadow-sm flex flex-col gap-3 h-full">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="bg-blue-600 text-white p-1.5 rounded-lg shadow-sm font-bold">
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V7h2v2z"/></svg>
+              </div>
+              <span className="font-bold text-blue-950 text-sm">AI Academic Insights</span>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                <div className="text-[10px] text-blue-600 font-bold tracking-wide uppercase mb-2 line-clamp-1">Trend Analysis</div>
+                <div className="text-xs leading-relaxed text-slate-700 font-medium">More data is required to provide trend analysis. Begin adding scores in the Task Ledger.</div>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                <div className="text-[10px] text-blue-600 font-bold tracking-wide uppercase mb-2 line-clamp-1">Auto-Grading Alert</div>
+                <div className="text-xs leading-relaxed text-slate-700 font-medium">Task scoring system is initialized. Complete your subject setup to receive alerts.</div>
+              </div>
+            </div>
+          </div>
+      </div>
 
       {/* Performance Quadrant Top Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

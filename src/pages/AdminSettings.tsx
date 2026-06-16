@@ -337,173 +337,65 @@ export default function AdminSettings() {
 
   return (
     <div className="space-y-8">
-      {/* Google Sheets Synchronization Panel */}
-      <div className="bg-gradient-to-b from-blue-50 to-white rounded-2xl border border-blue-100 p-6 shadow-sm space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-          <div className="flex items-center space-x-3">
-            <div className="bg-emerald-600 text-white p-2 rounded-xl shadow-md shadow-emerald-100">
-              <FileSpreadsheet className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 leading-tight">Google Sheets Master Storage</h2>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Automated real-time write-through database synchronization</p>
-            </div>
-          </div>
-          
-          <div className="flex gap-2">
-            {!accessToken ? (
-              <button
-                onClick={handleConnectGoogle}
+      {/* Google Sheets Backup Settings */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          Google Sheets Auto-Backup
+        </h2>
+        <p className="text-xs text-slate-500 mt-1">Data entered in the software is automatically backed up to your Google Sheet without needing to sync manually. The app stores its primary data completely in Firebase.</p>
+        
+        <div className="mt-4 flex flex-col md:flex-row gap-4 items-center">
+           {!accessToken ? (
+             <button
+                onClick={async () => {
+                  await reconnectGoogle();
+                }}
                 className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs px-4 py-2 rounded-lg transition shadow-sm flex items-center space-x-2 cursor-pointer"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-blue-500 animate-spin-slow" />
                 <span>Authorize Google Session</span>
-              </button>
-            ) : (
-              <span className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Authorized Active Token</span>
-              </span>
-            )}
-            
-            {config.googleSpreadsheetId && (
-              <>
-                <button
-                  onClick={handlePullFromSheet}
-                  disabled={isSyncing}
-                  className="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-semibold text-xs px-4 py-2 rounded-lg transition shadow-sm flex items-center space-x-2 cursor-pointer"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-                  <span>{isSyncing ? "Importing..." : "Import Sheet Data"}</span>
-                </button>
-                <button
-                  onClick={handleManualSync}
-                  disabled={isSyncing}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold text-xs px-4 py-2 rounded-lg transition shadow-sm flex items-center space-x-2 cursor-pointer"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-                  <span>{isSyncing ? "Syncing..." : "Force Full Sync"}</span>
-                </button>
-              </>
-            )}
-          </div>
+             </button>
+           ) : (
+             <span className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Authorized</span>
+             </span>
+           )}
+           
+           <div className="flex-1 w-full flex gap-2">
+             <input
+                type="text"
+                value={sheetInputId}
+                onChange={(e) => setSheetInputId(e.target.value)}
+                placeholder="Paste Spreadsheet URL or ID here..."
+                className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 flex-1"
+             />
+             <button
+                onClick={handleLinkExistingSheet}
+                disabled={isSyncing || !sheetInputId.trim()}
+                className="bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-semibold text-xs px-4 py-1.5 rounded-lg transition"
+             >
+                Set as Backup
+             </button>
+             {config.googleSpreadsheetId && (
+               <button
+                  onClick={handleDisconnectSheet}
+                  className="bg-rose-100 text-rose-700 hover:bg-rose-200 font-semibold text-xs px-3 py-1.5 rounded-lg transition"
+               >
+                  Unlink
+               </button>
+             )}
+           </div>
         </div>
-
-        {/* Sync Status Feedback Banner */}
-        {syncStatus.type && (
-          <div className={`p-4 rounded-xl text-xs font-semibold flex items-start space-x-2.5 shadow-sm border ${
-            syncStatus.type === "success" 
-              ? "bg-emerald-50 border-emerald-150 text-emerald-800" 
-              : syncStatus.type === "error" 
-              ? "bg-rose-50 border-rose-150 text-rose-800" 
-              : "bg-blue-50 border-blue-150 text-blue-800"
-          }`}>
-            {syncStatus.type === "success" ? (
-              <Check className="w-4.5 h-4.5 text-emerald-600 shrink-0 mt-0.5" />
-            ) : syncStatus.type === "error" ? (
-              <AlertTriangle className="w-4.5 h-4.5 text-rose-600 shrink-0 mt-0.5" />
-            ) : (
-              <RefreshCw className="w-4.5 h-4.5 text-blue-600 shrink-0 animate-spin mt-0.5" />
-            )}
-            <div>{syncStatus.message}</div>
+        
+        {config.googleSpreadsheetId && (
+          <div className="mt-3 text-[11px] font-medium text-slate-500 flex items-center gap-2">
+            <span>Currently backing up to:</span>
+            <a href={config.googleSpreadsheetUrl} target="_blank" rel="noreferrer" className="text-blue-500 underline">
+               {config.googleSpreadsheetId}
+            </a>
           </div>
         )}
-
-        <div className="grid md:grid-cols-2 gap-6 items-stretch">
-          {/* Linked Spreadsheet Details Or Creation Control */}
-          <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col justify-between">
-            {config.googleSpreadsheetId ? (
-              <div className="space-y-4">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Connected Spreadsheet</div>
-                
-                <div className="flex items-start space-x-3.5 py-1">
-                  <div className="bg-emerald-100 text-emerald-800 p-2.5 rounded-lg">
-                    <FileSpreadsheet className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-slate-900 truncate">RG PRS Student &amp; Grading Records</h3>
-                    <p className="text-xs text-slate-500 font-mono select-all truncate mt-0.5">Spreadsheet ID: {config.googleSpreadsheetId}</p>
-                  </div>
-                </div>
-
-                {config.googleSyncLastTime && (
-                  <div className="text-[11px] text-slate-500 font-medium">
-                    Last synchronized: <span className="text-slate-800 font-semibold">{new Date(config.googleSyncLastTime).toLocaleString()}</span>
-                  </div>
-                )}
-
-                <div className="flex items-center space-x-2 pt-2">
-                  <a
-                    href={config.googleSpreadsheetUrl}
-                    target="_blank"
-                    referrerPolicy="no-referrer"
-                    rel="noreferrer"
-                    className="inline-flex items-center space-x-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-black border border-slate-200 text-xs font-semibold px-4 py-2 rounded-lg transition shadow-sm"
-                  >
-                    <span>Open Sheet in Drive</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                  <button
-                    onClick={handleDisconnectSheet}
-                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-semibold px-3 py-2 rounded-lg transition cursor-pointer"
-                  >
-                    Disconnect
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3.5">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Initialize Google Sheet</div>
-                <h3 className="font-semibold text-slate-900">No Master Spreadsheet Connected</h3>
-                <p className="text-xs text-slate-500 leading-normal">
-                  Create a dedicated Spreadsheet directly in your drive. Once initialized, all records inside the app will push and sync automatically.
-                </p>
-                <div className="pt-2">
-                  <button
-                    onClick={handleCreateNewSheet}
-                    disabled={isSyncing}
-                    className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-semibold text-xs px-4 py-2 rounded-lg transition shadow-sm inline-flex items-center space-x-1.5 cursor-pointer"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    <span>Create New Spreadsheet</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Link Existing Spreadsheet */}
-          <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col justify-between">
-            <div className="space-y-3.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Link Existing Spreadsheet</div>
-              <h3 className="font-semibold text-slate-900">Connect to an Existing Sheets ID</h3>
-              <p className="text-[11px] text-slate-500 leading-normal">
-                Connecting a single Master Sheet for all users requires a backend Service Account configuration. The app will bypass user-specific authentication and write directly using these credentials.
-              </p>
-              
-              <div className="flex gap-2 pt-1.5">
-                <input
-                  type="text"
-                  value={sheetInputId}
-                  onChange={(e) => setSheetInputId(e.target.value)}
-                  placeholder="Paste URL or Spreadsheet ID here..."
-                  className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 flex-1 shrink-0"
-                />
-                <button
-                  onClick={handleLinkExistingSheet}
-                  disabled={isSyncing || !sheetInputId.trim()}
-                  className="bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-semibold text-xs px-4 py-1.5 rounded-lg transition shrink-0 cursor-pointer"
-                >
-                  Link Sheet
-                </button>
-              </div>
-            </div>
-            
-            <div className="text-[10px] text-slate-400 font-medium leading-relaxed mt-4">
-              Note: Make sure your connected Service Account email is added as an 'Editor' on the pasted Google Spreadsheet.
-            </div>
-          </div>
-        </div>
       </div>
 
       <div>
