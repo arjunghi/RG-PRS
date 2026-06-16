@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../lib/firebaseClient";
-import { collection, onSnapshot, doc, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, setDoc, deleteDoc, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/firebaseUtils";
 import { useAuth } from "../lib/AuthContext";
 import { createSpreadsheet, syncAllFirestoreToSheets, saveSheetConnection, triggerLiveSyncInBg, importSheetsConfirmAndSync } from "../lib/googleSheetsSync";
@@ -48,9 +48,19 @@ export default function AdminSettings() {
     return () => { unsub1(); unsub2(); unsub3(); };
   }, []);
 
-  const changeRole = async (userId: string, newRole: string) => {
+  const changeRole = async (userId: string, email: string, newRole: string) => {
     try {
-      await updateDoc(doc(db, "users", userId), { role: newRole });
+      const q = query(collection(db, "users"), where("email", "==", email));
+      const snaps = await getDocs(q);
+      if (!snaps.empty) {
+         const batch = writeBatch(db);
+         snaps.docs.forEach((d) => {
+            batch.update(d.ref, { role: newRole });
+         });
+         await batch.commit();
+      } else {
+         await updateDoc(doc(db, "users", userId), { role: newRole });
+      }
     } catch(err) {
       handleFirestoreError(err, OperationType.UPDATE, "users");
     }
@@ -443,7 +453,7 @@ export default function AdminSettings() {
                       <td className="px-4 py-2.5">
                         <select 
                           value={u.role} 
-                          onChange={(e) => changeRole(u.id, e.target.value)}
+                          onChange={(e) => changeRole(u.id, u.email, e.target.value)}
                           className="border border-slate-200 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                         >
                             <option value="guest">Guest / Pending</option>
@@ -471,7 +481,14 @@ export default function AdminSettings() {
                           <div className="flex space-x-1 ml-2">
                              <button
                                onClick={async () => {
-                                 await updateDoc(doc(db, "users", u.id), { status: "approved" });
+                                 const q = query(collection(db, "users"), where("email", "==", u.email));
+                                 const snaps = await getDocs(q);
+                                 const batch = writeBatch(db);
+                                 snaps.docs.forEach((d) => {
+                                   batch.update(d.ref, { status: "approved" });
+                                 });
+                                 await batch.commit();
+
                                  // Auto-assign if requested
                                  if (u.role === "teacher" && u.requestedGrade && u.requestedSubject) {
                                     const subjStr = String(u.requestedSubject).toLowerCase().replace(/\s+/g, '-');
@@ -497,7 +514,13 @@ export default function AdminSettings() {
                              </button>
                              <button
                                onClick={async () => {
-                                 await updateDoc(doc(db, "users", u.id), { status: "rejected" });
+                                 const q = query(collection(db, "users"), where("email", "==", u.email));
+                                 const snaps = await getDocs(q);
+                                 const batch = writeBatch(db);
+                                 snaps.docs.forEach((d) => {
+                                   batch.update(d.ref, { status: "rejected" });
+                                 });
+                                 await batch.commit();
                                }}
                                className="bg-rose-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-rose-700"
                              >
@@ -505,6 +528,26 @@ export default function AdminSettings() {
                              </button>
                           </div>
                         )}
+                        <button
+                          onClick={async () => {
+                             if(window.confirm(`Are you sure you want to remove user ${u.email}?`)) {
+                                const q = query(collection(db, "users"), where("email", "==", u.email));
+                                const snaps = await getDocs(q);
+                                const batch = writeBatch(db);
+                                snaps.docs.forEach((d) => {
+                                  batch.delete(d.ref);
+                                });
+                                await batch.commit();
+                             }
+                          }}
+                          className="ml-2 text-slate-400 hover:text-red-600 p-1 rounded transition-colors"
+                          title="Delete User"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                          </svg>
+                        </button>
                       </td>
                    </tr>
                  ))}

@@ -80,6 +80,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              if (emailSnap.exists()) {
                 userSnap = emailSnap;
                 targetDocRef = emailDocRef;
+                
+                // Create the UID document right away to migrate the user
+                const data = emailSnap.data();
+                try {
+                   await setDoc(userDocRef, {
+                      ...data,
+                      createdAt: new Date().toISOString()
+                   });
+                   // Now target the UID doc
+                   targetDocRef = userDocRef;
+                } catch(e) {
+                   console.log("Could not migrate email doc to uid doc", e);
+                }
              }
           }
           
