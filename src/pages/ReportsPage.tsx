@@ -44,7 +44,7 @@ export default function ReportsPage() {
   const isAdmin = user?.appRole === "admin";
   const permittedSubjects = isAdmin 
     ? subjects 
-    : subjects.filter(s => (s.assignments || []).some((a: any) => a.teacherEmail === user?.email));
+    : subjects.filter(s => (s.assignments || []).some((a: any) => String(a.teacherEmail || "").toLowerCase().trim() === String(user?.email || "").toLowerCase().trim()));
 
   const partTotal = (Number(marksConfig.attWeight) || 0) + (Number(marksConfig.discipline) || 0);
   const pracTotal = (Number(marksConfig.practical) || 0) + (Number(marksConfig.project) || 0) + (Number(marksConfig.hwWeight) || 0) + (Number(marksConfig.cwWeight) || 0);

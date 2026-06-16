@@ -33,7 +33,7 @@ export default function TaskLedger() {
 
   const permittedSubjects = isAdmin 
     ? subjects 
-    : subjects.filter(s => (s.assignments || []).some((a: any) => a.teacherEmail === user?.email));
+    : subjects.filter(s => (s.assignments || []).some((a: any) => String(a.teacherEmail || "").toLowerCase().trim() === String(user?.email || "").toLowerCase().trim()));
 
   // Determine allowed grades and sections based on the selected subject's assignments
   let allowedGrades = Array.from(new Set([
@@ -53,7 +53,7 @@ export default function TaskLedger() {
   if (!isAdmin && activeSubject) {
      const sub = subjects.find(s => s.id === activeSubject);
      if (sub) {
-        const assigns = (sub.assignments || []).filter((a: any) => a.teacherEmail === user?.email);
+        const assigns = (sub.assignments || []).filter((a: any) => String(a.teacherEmail || "").toLowerCase().trim() === String(user?.email || "").toLowerCase().trim());
         const hasAllGrades = assigns.some((a: any) => a.gradeLevel === "All");
         const hasAllSections = assigns.some((a: any) => a.section === "All");
         if (!hasAllGrades) {

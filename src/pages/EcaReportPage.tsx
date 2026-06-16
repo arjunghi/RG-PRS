@@ -22,7 +22,7 @@ export default function EcaReportPage() {
   const isAdmin = user?.appRole === "admin";
   const permittedSubjects = isAdmin 
     ? subjects 
-    : subjects.filter(s => (s.assignments || []).some((a: any) => a.teacherEmail === user?.email));
+    : subjects.filter(s => (s.assignments || []).some((a: any) => String(a.teacherEmail || "").toLowerCase().trim() === String(user?.email || "").toLowerCase().trim()));
 
   useEffect(() => {
     const unsubSubj = onSnapshot(collection(db, "subjects"), (snap) => {
