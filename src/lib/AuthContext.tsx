@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           const emailKey = email.toLowerCase().trim();
           
-          if (!userSnap.exists() && emailKey) {
+          if (emailKey) {
              try {
                 const emailDocRef = doc(db, "users", emailKey);
                 const emailSnap = await getDoc(emailDocRef);
