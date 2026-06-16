@@ -74,28 +74,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           const emailKey = email.toLowerCase().trim();
           
-          if (emailKey) {
-             const emailDocRef = doc(db, "users", emailKey);
-             const emailSnap = await getDoc(emailDocRef);
-             if (emailSnap.exists()) {
-                const enrollData = emailSnap.data();
-                
-                // Migrate or merge pre-enrolled fields into the secure UID document
-                await setDoc(userDocRef, {
-                   ...enrollData,
-                   email: emailKey, // ensure normalized email is set
-                   updatedAt: new Date().toISOString()
-                }, { merge: true });
-                
-                // Refresh our user snapshot from Firestore
-                userSnap = await getDoc(userDocRef);
-                
-                // Delete the email-keyed document to prevent duplicate rows in user registries
-                try {
-                   await deleteDoc(emailDocRef);
-                } catch(e) {
-                   console.warn("Could not delete processed email-keyed user doc:", e);
+          if (!userSnap.exists() && emailKey) {
+             try {
+                const emailDocRef = doc(db, "users", emailKey);
+                const emailSnap = await getDoc(emailDocRef);
+                if (emailSnap.exists()) {
+                   const enrollData = emailSnap.data();
+                   
+                   // Migrate or merge pre-enrolled fields into the secure UID document
+                   await setDoc(userDocRef, {
+                      ...enrollData,
+                      email: emailKey, // ensure normalized email is set
+                      updatedAt: new Date().toISOString()
+                   }, { merge: true });
+                   
+                   // Refresh our user snapshot from Firestore
+                   userSnap = await getDoc(userDocRef);
+                   
+                   // Delete the email-keyed document to prevent duplicate rows in user registries
+                   try {
+                      await deleteDoc(emailDocRef);
+                   } catch(e) {
+                      console.warn("Could not delete processed email-keyed user doc:", e);
+                   }
                 }
+             } catch(errSnap) {
+                console.warn("Failed pre-enrolled check or migration:", errSnap);
              }
           }
           

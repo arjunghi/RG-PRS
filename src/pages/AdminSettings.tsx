@@ -13,7 +13,9 @@ export default function AdminSettings() {
   const [config, setConfig] = useState<any>({ grades: [], sections: [] });
   
   const [newSubj, setNewSubj] = useState("");
+  const [newSubjGrade, setNewSubjGrade] = useState("General");
   const [newEca, setNewEca] = useState("");
+  const [newEcaGrade, setNewEcaGrade] = useState("General");
   const [ecaCriteria, setEcaCriteria] = useState<string[]>(["", "", "", "", ""]);
   
   const [newTeacherName, setNewTeacherName] = useState("");
@@ -186,12 +188,13 @@ export default function AdminSettings() {
     e.preventDefault();
     try {
       const name = type === "academic" ? newSubj : newEca;
-      const sId = (type + "-" + name).toLowerCase().replace(/\s+/g, '-');
+      const selectedGrade = type === "academic" ? newSubjGrade : newEcaGrade;
+      const sId = (type + "-" + selectedGrade + "-" + name).toLowerCase().replace(/\s+/g, '-').trim();
       
       const payload: any = {
          name: name,
          type: type,
-         gradeLevel: "General",
+         gradeLevel: selectedGrade,
          teacherEmails: [],
          assignments: []
       };
@@ -202,9 +205,13 @@ export default function AdminSettings() {
 
       await setDoc(doc(db, "subjects", sId), payload);
       
-      if(type === "academic") setNewSubj("");
+      if(type === "academic") {
+         setNewSubj("");
+         setNewSubjGrade("General");
+      }
       else {
          setNewEca("");
+         setNewEcaGrade("General");
          setEcaCriteria(["", "", "", "", ""]);
       }
       
@@ -643,14 +650,26 @@ export default function AdminSettings() {
       <div className="grid md:grid-cols-2 gap-8">
         <div>
           <h2 className="text-xl font-bold text-slate-900 mb-4">Academic Subject Management</h2>
-          <form onSubmit={e => addSubject(e, "academic")} className="mb-4 flex space-x-2">
-            <input value={newSubj} onChange={e => setNewSubj(e.target.value)} placeholder="Academic Subject Name..." className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full" required />
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 transition text-white font-semibold text-sm px-4 py-2 rounded-lg">Add</button>
+          <form onSubmit={e => addSubject(e, "academic")} className="mb-4 space-y-3 bg-slate-50 p-4 border border-slate-200 rounded-xl shadow-sm">
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Subject Name</label>
+              <input value={newSubj} onChange={e => setNewSubj(e.target.value)} placeholder="Academic Subject Name..." className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full bg-white font-medium" required />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Grade Level</label>
+              <select value={newSubjGrade} onChange={e => setNewSubjGrade(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+                <option value="General">General (All Grades)</option>
+                {(config.gradeMappings || []).map((g: any) => (
+                  <option key={g.grade} value={g.grade}>{g.grade}</option>
+                ))}
+              </select>
+            </div>
+            <button type="submit" className="bg-blue-600 hover:bg-blue-700 transition w-full text-white font-semibold text-sm px-4 py-2 rounded-lg cursor-pointer">Add Academic Subject</button>
           </form>
           <div className="flex flex-wrap gap-2">
             {subjects.filter(s => s.type === "academic").map(s => (
               <span key={s.id} className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-sm font-bold text-slate-700 shadow-sm flex items-center gap-2">
-                <span>{s.name}</span>
+                <span>{s.name} <span className="text-[10px] font-semibold text-blue-600 uppercase">({s.gradeLevel || "General"})</span></span>
                 <button type="button" onClick={() => handleDeleteSubject(s.id)} className="text-slate-400 hover:text-red-500 cursor-pointer" title="Delete subject">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 </button>
@@ -661,34 +680,48 @@ export default function AdminSettings() {
         
         <div>
           <h2 className="text-xl font-bold text-slate-900 mb-4">ECA Subject Management</h2>
-          <form onSubmit={e => addSubject(e, "eca")} className="mb-4 space-y-3 bg-slate-50 p-4 border border-slate-200 rounded-xl">
-            <input value={newEca} onChange={e => setNewEca(e.target.value)} placeholder="ECA Activity Name..." className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full" required />
+          <form onSubmit={e => addSubject(e, "eca")} className="mb-4 space-y-3 bg-slate-50 p-4 border border-slate-200 rounded-xl shadow-sm">
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">ECA Activity Name</label>
+              <input value={newEca} onChange={e => setNewEca(e.target.value)} placeholder="ECA Activity Name..." className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full bg-white font-medium" required />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Grade Level</label>
+              <select value={newEcaGrade} onChange={e => setNewEcaGrade(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+                <option value="General">General (All Grades)</option>
+                {(config.gradeMappings || []).map((g: any) => (
+                  <option key={g.grade} value={g.grade}>{g.grade}</option>
+                ))}
+              </select>
+            </div>
             <div className="space-y-2">
-              <label className="text-[11px] font-bold uppercase text-slate-500">Grading Criteria (5-7 item max)</label>
-              {ecaCriteria.map((crit, idx) => (
-                <input 
-                  key={idx} 
-                  value={crit} 
-                  onChange={e => {
-                    const newCrit = [...ecaCriteria];
-                    newCrit[idx] = e.target.value;
-                    setEcaCriteria(newCrit);
-                  }} 
-                  placeholder={`Criterion ${idx + 1}...`} 
-                  className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full"
-                />
-              ))}
+              <label className="text-[11px] font-bold uppercase text-slate-500 block">Grading Criteria (5-7 item max)</label>
+              <div className="space-y-1">
+                 {ecaCriteria.map((crit, idx) => (
+                   <input 
+                     key={idx} 
+                     value={crit} 
+                     onChange={e => {
+                       const newCrit = [...ecaCriteria];
+                       newCrit[idx] = e.target.value;
+                       setEcaCriteria(newCrit);
+                     }} 
+                     placeholder={`Criterion ${idx + 1}...`} 
+                     className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm examine-box focus:ring-2 focus:ring-blue-500 outline-none w-full bg-white"
+                   />
+                 ))}
+              </div>
               {ecaCriteria.length < 7 && (
-                <button type="button" onClick={() => setEcaCriteria([...ecaCriteria, ""])} className="text-blue-600 text-xs font-bold hover:underline">+ Add Criterion</button>
+                <button type="button" onClick={() => setEcaCriteria([...ecaCriteria, ""])} className="text-blue-600 text-xs font-bold hover:underline cursor-pointer block mt-1">+ Add Criterion</button>
               )}
             </div>
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 transition w-full text-white font-semibold text-sm px-4 py-2 rounded-lg">Add ECA Activity</button>
+            <button type="submit" className="bg-blue-600 hover:bg-blue-700 transition w-full text-white font-semibold text-sm px-4 py-2 rounded-lg cursor-pointer">Add ECA Activity</button>
           </form>
           <div className="flex flex-wrap gap-2">
             {subjects.filter(s => s.type === "eca").map(s => (
               <span key={s.id} className="bg-white border border-slate-200 pl-3 pr-2 py-1.5 rounded-lg text-sm font-bold text-slate-700 shadow-sm flex items-start gap-3">
                 <div className="flex flex-col">
-                  <span>{s.name}</span>
+                  <span>{s.name} <span className="text-[10px] font-semibold text-blue-600 uppercase">({s.gradeLevel || "General"})</span></span>
                   <span className="text-[10px] text-slate-400 font-normal">{s.ecaCriteria?.length || 0} criteria</span>
                 </div>
                 <button type="button" onClick={() => handleDeleteSubject(s.id)} className="text-slate-400 hover:text-red-500 cursor-pointer mt-0.5" title="Delete activity">
@@ -714,7 +747,7 @@ export default function AdminSettings() {
              <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Subject</label>
              <select required value={assignSubject} onChange={e => setAssignSubject(e.target.value)} className="w-48 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                <option value="" disabled>Select Subject</option>
-               {subjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.type})</option>)}
+               {subjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.gradeLevel || "General"}) ({s.type})</option>)}
              </select>
           </div>
           <div>

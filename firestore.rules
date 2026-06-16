@@ -48,7 +48,7 @@ service cloud.firestore {
       allow list: if isSignedIn() && isAdmin();
       allow create: if isSignedIn() && isVerified() && isValidUser(incoming()) && ( request.auth.uid == userId || isAdmin() );
       allow update: if isSignedIn() && isVerified() && (isAdmin() || ((request.auth.uid == userId || request.auth.token.email == userId) && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'requestedGrade', 'requestedSubject', 'status', 'requestedAt', 'name']))) && isValidUser(incoming());
-      allow delete: if isSignedIn() && isAdmin();
+      allow delete: if isSignedIn() && (isAdmin() || request.auth.token.email == userId);
     }
 
     function isValidSubject(data) {

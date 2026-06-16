@@ -64,14 +64,29 @@ export default function ReportsPage() {
       if(snap.exists()) {
         const data = snap.data();
         setConfig(data);
-        if (data.cdcMarksAllocation) {
-          setMarksConfig(data.cdcMarksAllocation);
-        }
       }
     }, err => handleFirestoreError(err, OperationType.LIST, "settings"));
 
     return () => { unsubSubj(); unsubStudents(); unsubConfig(); };
   }, []);
+
+  useEffect(() => {
+    if (!config) return;
+    const key = activeSubject ? `subjectMarks_${activeSubject}` : 'cdcMarksAllocation';
+    const selectedAlloc = config[key] || config['cdcMarksAllocation'] || {
+      attWeight: 0,
+      discipline: 0,
+      practical: 0,
+      project: 0,
+      hwWeight: 0,
+      cwWeight: 0,
+      unitTest: 0,
+      parentalEv: 0,
+      pracBox: 0,
+      writtenExam: 0,
+    };
+    setMarksConfig(selectedAlloc);
+  }, [activeSubject, config]);
 
   useEffect(() => {
     if(!activeSubject) return;
@@ -91,21 +106,30 @@ export default function ReportsPage() {
     if(!isAdmin) return alert("Admin only action");
     setIsSavingMarks(true);
     try {
-      await setDoc(doc(db, "settings", "schoolConfig"), {
-        cdcMarksAllocation: {
-          attWeight: Number(marksConfig.attWeight),
-          discipline: Number(marksConfig.discipline),
-          practical: Number(marksConfig.practical),
-          project: Number(marksConfig.project),
-          hwWeight: Number(marksConfig.hwWeight),
-          cwWeight: Number(marksConfig.cwWeight),
-          unitTest: Number(marksConfig.unitTest),
-          parentalEv: Number(marksConfig.parentalEv),
-          pracBox: Number(marksConfig.pracBox),
-          writtenExam: Number(marksConfig.writtenExam),
-        }
-      }, { merge: true });
-      alert("Marks config saved successfully");
+      const targetWeightConfig = {
+        attWeight: Number(marksConfig.attWeight),
+        discipline: Number(marksConfig.discipline),
+        practical: Number(marksConfig.practical),
+        project: Number(marksConfig.project),
+        hwWeight: Number(marksConfig.hwWeight),
+        cwWeight: Number(marksConfig.cwWeight),
+        unitTest: Number(marksConfig.unitTest),
+        parentalEv: Number(marksConfig.parentalEv),
+        pracBox: Number(marksConfig.pracBox),
+        writtenExam: Number(marksConfig.writtenExam),
+      };
+
+      const payload: any = {};
+      
+      if (activeSubject) {
+        payload[`subjectMarks_${activeSubject}`] = targetWeightConfig;
+        await setDoc(doc(db, "settings", "schoolConfig"), payload, { merge: true });
+        alert(`CDC Marks Allocation saved specifically for "${activeSubjectData?.name || activeSubject}" (${activeSubjectData?.gradeLevel || 'General'})`);
+      } else {
+        payload.cdcMarksAllocation = targetWeightConfig;
+        await setDoc(doc(db, "settings", "schoolConfig"), payload, { merge: true });
+        alert("Overall Default CDC Marks Allocation saved successfully");
+      }
     } catch(err) {
       console.error(err);
       alert("Failed to save marks");
@@ -266,7 +290,17 @@ export default function ReportsPage() {
              <SettingsIcon className="w-5 h-5" />
              <h3 className="uppercase text-sm tracking-wide">Gradesheet Marks Allocation</h3>
            </div>
-           <p className="text-xs text-slate-500">Configure or Assign marks for overall calculations.</p>
+           <p className="text-xs text-slate-600 leading-relaxed">
+              {activeSubjectData ? (
+                <span>
+                  Currently configuring weights specifically for: <strong className="text-amber-800 font-black font-sans text-xs bg-amber-100/70 border border-amber-200 px-1.5 py-0.5 rounded">{String(activeSubjectData.name).toUpperCase()} ({String(activeSubjectData.gradeLevel || "General").toUpperCase()})</strong>.
+                </span>
+              ) : (
+                <span>
+                  No subject selected. Currently editing the <strong className="text-amber-800 font-bold">Overall Fallback Default config</strong>. Please select a specific subject in the top right to customize weights gradesheet-wise.
+                </span>
+              )}
+            </p>
            
            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 pb-2 pt-2 items-end">
               <div>
