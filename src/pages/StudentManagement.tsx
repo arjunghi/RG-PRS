@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../lib/firebaseClient";
-import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/firebaseUtils";
 import { useAuth } from "../lib/AuthContext";
 import { triggerLiveSyncInBg } from "../lib/googleSheetsSync";
@@ -93,17 +93,24 @@ export default function StudentManagement() {
         return;
       }
 
-      const promises = names.map(async (name) => {
-        return addDoc(collection(db, "students"), {
-          name,
-          gradeLevel: multiGrade,
-          section: multiSection,
-          ecaSports: [],
-          createdAt: new Date().toISOString()
+      // Batch size limit is 500
+      const chunkSize = 400;
+      for (let i = 0; i < names.length; i += chunkSize) {
+        const chunk = names.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        chunk.forEach(name => {
+           const newDocRef = doc(collection(db, "students"));
+           batch.set(newDocRef, {
+             name,
+             gradeLevel: multiGrade,
+             section: multiSection,
+             ecaSports: [],
+             createdAt: new Date().toISOString()
+           });
         });
-      });
+        await batch.commit();
+      }
 
-      await Promise.all(promises);
       alert(`Success! Imported ${names.length} students into ${multiGrade} - ${multiSection}.`);
       setMultilineNames("");
       setMultiGrade("");

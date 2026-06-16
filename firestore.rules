@@ -23,8 +23,8 @@ service cloud.firestore {
     }
     
     function isAdmin() { return hasRole(['admin']); }
-    function isTeacher() { return hasRole(['teacher', 'eca_teacher', 'admin']); }
-    function isStaff() { return hasRole(['staff', 'teacher', 'eca_teacher', 'admin']); }
+    function isTeacher() { return hasRole(['teacher', 'eca_teacher', 'admin', 'incharge']); }
+    function isStaff() { return hasRole(['staff', 'teacher', 'eca_teacher', 'admin', 'incharge']); }
     
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
@@ -33,7 +33,8 @@ service cloud.firestore {
     function isValidUser(data) {
       return data.keys().hasAll(['email', 'role', 'createdAt']) && 
              data.email is string && data.email.size() <= 200 &&
-             data.role in ['admin', 'teacher', 'eca_teacher', 'staff', 'student'] &&
+             data.role in ['admin', 'teacher', 'eca_teacher', 'staff', 'student', 'incharge', 'guest'] &&
+             (!('status' in data.keys()) || (data.status in ['approved', 'pending', 'rejected', 'unregistered'])) &&
              data.createdAt is string; // using string for ISO dates
     }
 
@@ -45,8 +46,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isAbsoluteAdmin() || request.auth.email == userId);
       allow list: if isSignedIn() && isAdmin();
-      allow create: if isSignedIn() && isVerified() && isValidUser(incoming()) && ( (request.auth.uid == userId && incoming().role == 'student') || isAdmin() );
-      allow update: if isSignedIn() && isVerified() && isAdmin() && isValidUser(incoming());
+      allow create: if isSignedIn() && isVerified() && isValidUser(incoming()) && ( request.auth.uid == userId || isAdmin() );
+      allow update: if isSignedIn() && isVerified() && (isAdmin() || ((request.auth.uid == userId || request.auth.token.email == userId) && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'requestedGrade', 'requestedSubject', 'status', 'requestedAt', 'name']))) && isValidUser(incoming());
       allow delete: if isSignedIn() && isAdmin();
     }
 
@@ -61,7 +62,7 @@ service cloud.firestore {
     }
     
     match /subjects/{subjectId} {
-      allow get, list: if isSignedIn() && isVerified() && isStaff();
+      allow get, list: if isSignedIn() && isVerified();
       allow create: if isSignedIn() && isVerified() && isAdmin() && isValidId(subjectId) && isValidSubject(incoming());
       allow update: if isSignedIn() && isVerified() && isAdmin() && isValidSubject(incoming());
       allow delete: if isSignedIn() && isVerified() && isAdmin();

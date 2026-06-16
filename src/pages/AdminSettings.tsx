@@ -17,6 +17,7 @@ export default function AdminSettings() {
   const [ecaCriteria, setEcaCriteria] = useState<string[]>(["", "", "", "", ""]);
   
   const [newTeacherEmail, setNewTeacherEmail] = useState("");
+  const [newUserRole, setNewUserRole] = useState("teacher");
   const [newGrade, setNewGrade] = useState("");
   const [newSectionMap, setNewSectionMap] = useState<Record<number, string>>({});
 
@@ -63,10 +64,12 @@ export default function AdminSettings() {
       await setDoc(doc(db, "users", email), {
         email: email,
         name: email, // Placeholder until they sign in
-        role: "teacher",
+        role: newUserRole,
+        status: "approved",
         createdAt: new Date().toISOString()
       });
       setNewTeacherEmail("");
+      setNewUserRole("teacher");
     } catch(err) {
       handleFirestoreError(err, OperationType.CREATE, "users");
     }
@@ -407,10 +410,19 @@ export default function AdminSettings() {
       <div>
         <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
           <h2 className="text-xl font-bold text-slate-900">Platform Users & Roles</h2>
-          {/* <form onSubmit={addInvitedTeacher} className="flex space-x-2">
-            <input type="email" value={newTeacherEmail} onChange={e => setNewTeacherEmail(e.target.value)} placeholder="Teacher Email Address..." className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-64" required />
-            <button type="submit" className="bg-slate-900 hover:bg-black transition text-white font-semibold text-sm px-4 py-1.5 rounded-lg">Pre-register Teacher</button>
-          </form> */}
+          <form onSubmit={addInvitedTeacher} className="flex space-x-2">
+            <input type="email" value={newTeacherEmail} onChange={e => setNewTeacherEmail(e.target.value)} placeholder="Email Address..." className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-64" required />
+            <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+               <option value="guest">Guest</option>
+               <option value="student">Student</option>
+               <option value="staff">Staff</option>
+               <option value="teacher">Teacher</option>
+               <option value="incharge">Incharge</option>
+               <option value="eca_teacher">ECA Teacher</option>
+               <option value="admin">Admin</option>
+            </select>
+            <button type="submit" className="bg-slate-900 hover:bg-black transition text-white font-semibold text-sm px-4 py-1.5 rounded-lg">Add/Pre-approve User</button>
+          </form>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
            <table className="w-full text-left text-[13px] whitespace-nowrap">
