@@ -121,18 +121,24 @@ export default function AdminSettings() {
        const subject = subjects.find(s => s.id === assignSubject);
        if (!subject) return;
        const assignments = subject.assignments || [];
-       assignments.push({
-           teacherEmail: assignTeacher,
-           gradeLevel: assignGrade,
-           section: assignSection
-       });
-       await updateDoc(doc(db, "subjects", assignSubject), { assignments });
        
-       setAssignTeacher("");
-       setAssignSubject("");
-       setAssignGrade("");
-       setAssignSection("");
-       triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
+       // Prevent duplicates
+       const isDuplicate = assignments.some((a: any) => 
+           a.teacherEmail === assignTeacher && a.gradeLevel === assignGrade && a.section === assignSection
+       );
+       
+       if (!isDuplicate) {
+         assignments.push({
+             teacherEmail: assignTeacher,
+             gradeLevel: assignGrade,
+             section: assignSection
+         });
+         await updateDoc(doc(db, "subjects", assignSubject), { assignments });
+         triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
+         
+         // Clear only the subject to allow rapid re-assignment of the same teacher/grade
+         setAssignSubject("");
+       }
     } catch(err) {
        handleFirestoreError(err, OperationType.UPDATE, "subjects");
     }
