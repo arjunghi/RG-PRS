@@ -129,11 +129,13 @@ export async function syncAllFirestoreToSheets(accessToken: string, spreadsheetI
   // Translate 1e. School Config (Grade mapping)
   const configDoc = configSnap.docs.find((d) => d.id === "schoolConfig");
   const gradeMappings = configDoc ? (configDoc.data()?.gradeMappings || []) : [];
+  const maxSections = Math.max(...gradeMappings.map(g => Array.isArray(g.sections) ? g.sections.length : 0), 1);
+  const sectionCols = Array.from({length: maxSections}).map((_, i) => `Section ${i+1}`);
   const configRows = [
-    ["Grade", "Sections"],
+    ["Grade", ...sectionCols],
     ...gradeMappings.map((g: any) => [
       g.grade || "",
-      (g.sections || []).join(", "),
+      ...Array.from({length: maxSections}).map((_, i) => (g.sections && g.sections[i]) ? g.sections[i] : "")
     ])
   ];
 

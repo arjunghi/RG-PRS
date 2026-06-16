@@ -399,11 +399,17 @@ app.post("/api/sheets/read", async (req, res) => {
       for (let i = 1; i < configRows.length; i++) {
         const row = configRows[i];
         if (!row || !row[gI]) continue;
-        const sectionsStr = row[sI] || "";
-        const sections = sectionsStr ? sectionsStr.split(/[,|]/).map((s: string) => s.trim()).filter(Boolean) : [];
+        const sections: string[] = [];
+        for (let j = sI; j < row.length; j++) {
+           const val = row[j];
+           if (val && typeof val === "string") {
+              const parts = val.split(/[,|]/).map(s => s.trim()).filter(Boolean);
+              sections.push(...parts);
+           }
+        }
         gradeMappings.push({
           grade: String(row[gI]).trim(),
-          sections: sections
+          sections: Array.from(new Set(sections))
         });
       }
     }
@@ -449,8 +455,8 @@ app.post("/api/sheets/read", async (req, res) => {
       }
     }
 
-    // Try parsing Matrix tabs if any (e.g. "Grade 1 Matrix")
-    const matrixSheets = sheetTitles.filter(t => t.toLowerCase().includes("matrix"));
+    // Try parsing Matrix/Marks tabs if any (e.g. "Grade 1 Marks")
+    const matrixSheets = sheetTitles.filter(t => t.toLowerCase().includes("matrix") || t.toLowerCase().includes("marks"));
     matrixSheets.forEach(mTitle => {
       const gRows = getValuesForSheet(mTitle);
       if (gRows.length > 1) {

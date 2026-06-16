@@ -3,11 +3,11 @@ import { db } from "../lib/firebaseClient";
 import { collection, onSnapshot, doc, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/firebaseUtils";
 import { useAuth } from "../lib/AuthContext";
-import { triggerLiveSyncInBg } from "../lib/googleSheetsSync";
-import { RefreshCw, PlusCircle, Check, AlertTriangle, ExternalLink } from "lucide-react";
+import { createSpreadsheet, syncAllFirestoreToSheets, saveSheetConnection, triggerLiveSyncInBg, importSheetsConfirmAndSync } from "../lib/googleSheetsSync";
+import { FileSpreadsheet, RefreshCw, Link2, PlusCircle, Check, AlertTriangle, ExternalLink } from "lucide-react";
 
 export default function AdminSettings() {
-  const { accessToken } = useAuth();
+  const { accessToken, reconnectGoogle } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [config, setConfig] = useState<any>({ grades: [], sections: [] });
@@ -24,6 +24,10 @@ export default function AdminSettings() {
   const [assignSubject, setAssignSubject] = useState("");
   const [assignGrade, setAssignGrade] = useState("");
   const [assignSection, setAssignSection] = useState("");
+
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [sheetInputId, setSheetInputId] = useState("");
+  const [syncStatus, setSyncStatus] = useState<{ type: "success" | "error" | "info" | null, message: string }>({ type: null, message: "" });
 
   useEffect(() => {
     const unsub1 = onSnapshot(collection(db, "users"), snap => {
@@ -190,8 +194,318 @@ export default function AdminSettings() {
     }
   }
 
+  const handleConnectGoogle = async () => {
+    setSyncStatus({ type: "info", message: "Connecting to your Google Account..." });
+    const token = await reconnectGoogle();
+    if (token) {
+      setSyncStatus({ type: "success", message: "Successfully connected Google account with Drive/Sheets permissions!" });
+    } else {
+      setSyncStatus({ type: "error", message: "Failed to connect Google account with sheets permission." });
+    }
+  }
+
+  const handleCreateNewSheet = async () => {
+    if (!accessToken) {
+      setSyncStatus({ type: "error", message: "Please connect your Google Account first." });
+      return;
+    }
+    setIsSyncing(true);
+    setSyncStatus({ type: "info", message: "Initializing new Google Spreadsheet on your Drive..." });
+    try {
+      const spreadsheet = await createSpreadsheet(accessToken, "RG PRS Student & Grading Records");
+      await saveSheetConnection(spreadsheet.id, spreadsheet.url);
+      setSyncStatus({ type: "info", message: "Spreadsheet initialized! Synced Google worksheets..." });
+      await syncAllFirestoreToSheets(accessToken, spreadsheet.id);
+      setSyncStatus({ type: "success", message: "Active Google Spreadsheet created and fully synced!" });
+    } catch (err: any) {
+      console.error(err);
+      setSyncStatus({ type: "error", message: `Failed to create spreadsheet: ${err.message || err}` });
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  const handleLinkExistingSheet = async () => {
+    if (!sheetInputId.trim()) return;
+    setIsSyncing(true);
+    setSyncStatus({ type: "info", message: "Connecting Google Spreadsheet ID..." });
+    try {
+      let sId = sheetInputId.trim();
+      if (sId.includes("/d/")) {
+        const parts = sId.split("/d/");
+        if (parts[1]) {
+          sId = parts[1].split("/")[0];
+        }
+      }
+      const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${sId}/edit`;
+      setSheetInputId("");
+      
+      if (accessToken) {
+        setSyncStatus({ type: "info", message: "Spreadsheet linked! Reading existing worksheets and auto-importing data..." });
+        const result = await importSheetsConfirmAndSync(accessToken, sId);
+        setSyncStatus({ 
+          type: "success", 
+          message: `Spreadsheet linked & auto-imported successfully! Read ${result.studentsCount} students, ${result.subjectsCount} subjects, ${result.tasksCount} tasks, and ${result.scoresCount} scores into your app database.` 
+        });
+      } else {
+        await saveSheetConnection(sId, spreadsheetUrl);
+        setSyncStatus({ type: "success", message: "Spreadsheet linked successfully! Connect your Google Account above to import and synchronize databases." });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setSyncStatus({ type: "error", message: `Failed to link and import spreadsheet: ${err.message || err}` });
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  const handlePullFromSheet = async () => {
+    if (!config.googleSpreadsheetId) {
+      setSyncStatus({ type: "error", message: "No connected spreadsheet found." });
+      return;
+    }
+    const token = accessToken || (await reconnectGoogle());
+    if (!token) {
+      setSyncStatus({ type: "error", message: "Missing Google authorization. Please connect your Google Account first." });
+      return;
+    }
+    const confirmed = window.confirm("This will read all worksheets from your Google Spreadsheet and import them, which may merge or overwrite current records. Proceed?");
+    if (!confirmed) return;
+
+    setIsSyncing(true);
+    setSyncStatus({ type: "info", message: "Importing records from active Google Sheet..." });
+    try {
+      const result = await importSheetsConfirmAndSync(token, config.googleSpreadsheetId);
+      setSyncStatus({ 
+        type: "success", 
+        message: `Import completed! Successfully read ${result.studentsCount} students, ${result.subjectsCount} subjects, ${result.tasksCount} tasks, and ${result.scoresCount} scores directly into the database.` 
+      });
+    } catch (err: any) {
+      console.error(err);
+      setSyncStatus({ type: "error", message: `Failed to import spreadsheet: ${err.message || err}` });
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  const handleManualSync = async () => {
+    if (!accessToken) {
+      const token = await reconnectGoogle();
+      if (!token) {
+        setSyncStatus({ type: "error", message: "Missing Google authorization. Please click the 'Authorize Google Session' button to log in first." });
+        return;
+      }
+    }
+    if (!config.googleSpreadsheetId) {
+      setSyncStatus({ type: "error", message: "No spreadsheet is linked. Please link or create a Google Sheet first." });
+      return;
+    }
+    setIsSyncing(true);
+    setSyncStatus({ type: "info", message: "Running complete on-demand spreadsheet synchronization..." });
+    try {
+      const activeToken = accessToken || (await reconnectGoogle());
+      if (activeToken) {
+        await syncAllFirestoreToSheets(activeToken, config.googleSpreadsheetId);
+        await setDoc(doc(db, "settings", "schoolConfig"), {
+          googleSyncLastTime: new Date().toISOString()
+        }, { merge: true });
+        setSyncStatus({ type: "success", message: "All records synchronized with Google Sheets successfully!" });
+      } else {
+        setSyncStatus({ type: "error", message: "Failed to obtain authorized Google Session." });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setSyncStatus({ type: "error", message: `Synchronization failed: ${err.message || err}` });
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  const handleDisconnectSheet = async () => {
+    if (!window.confirm("Disconnect spreadsheet? This will stop automated updates, but your spreadsheet file on Google Drive will remain intact.")) return;
+    try {
+      await setDoc(doc(db, "settings", "schoolConfig"), {
+        googleSpreadsheetId: null,
+        googleSpreadsheetUrl: null,
+        googleSyncLastTime: null
+      }, { merge: true });
+      setSyncStatus({ type: "success", message: "Google Sheet connection deleted." });
+    } catch (err: any) {
+      setSyncStatus({ type: "error", message: `Disconnect failed: ${err.message || err}` });
+    }
+  }
+
   return (
     <div className="space-y-8">
+      {/* Google Sheets Synchronization Panel */}
+      <div className="bg-gradient-to-b from-blue-50 to-white rounded-2xl border border-blue-100 p-6 shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+          <div className="flex items-center space-x-3">
+            <div className="bg-emerald-600 text-white p-2 rounded-xl shadow-md shadow-emerald-100">
+              <FileSpreadsheet className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 leading-tight">Google Sheets Master Storage</h2>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Automated real-time write-through database synchronization</p>
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            {!accessToken ? (
+              <button
+                onClick={handleConnectGoogle}
+                className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs px-4 py-2 rounded-lg transition shadow-sm flex items-center space-x-2 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-blue-500 animate-spin-slow" />
+                <span>Authorize Google Session</span>
+              </button>
+            ) : (
+              <span className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Authorized Active Token</span>
+              </span>
+            )}
+            
+            {config.googleSpreadsheetId && (
+              <>
+                <button
+                  onClick={handlePullFromSheet}
+                  disabled={isSyncing}
+                  className="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-semibold text-xs px-4 py-2 rounded-lg transition shadow-sm flex items-center space-x-2 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+                  <span>{isSyncing ? "Importing..." : "Import Sheet Data"}</span>
+                </button>
+                <button
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold text-xs px-4 py-2 rounded-lg transition shadow-sm flex items-center space-x-2 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+                  <span>{isSyncing ? "Syncing..." : "Force Full Sync"}</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Sync Status Feedback Banner */}
+        {syncStatus.type && (
+          <div className={`p-4 rounded-xl text-xs font-semibold flex items-start space-x-2.5 shadow-sm border ${
+            syncStatus.type === "success" 
+              ? "bg-emerald-50 border-emerald-150 text-emerald-800" 
+              : syncStatus.type === "error" 
+              ? "bg-rose-50 border-rose-150 text-rose-800" 
+              : "bg-blue-50 border-blue-150 text-blue-800"
+          }`}>
+            {syncStatus.type === "success" ? (
+              <Check className="w-4.5 h-4.5 text-emerald-600 shrink-0 mt-0.5" />
+            ) : syncStatus.type === "error" ? (
+              <AlertTriangle className="w-4.5 h-4.5 text-rose-600 shrink-0 mt-0.5" />
+            ) : (
+              <RefreshCw className="w-4.5 h-4.5 text-blue-600 shrink-0 animate-spin mt-0.5" />
+            )}
+            <div>{syncStatus.message}</div>
+          </div>
+        )}
+
+        <div className="grid md:grid-cols-2 gap-6 items-stretch">
+          {/* Linked Spreadsheet Details Or Creation Control */}
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col justify-between">
+            {config.googleSpreadsheetId ? (
+              <div className="space-y-4">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Connected Spreadsheet</div>
+                
+                <div className="flex items-start space-x-3.5 py-1">
+                  <div className="bg-emerald-100 text-emerald-800 p-2.5 rounded-lg">
+                    <FileSpreadsheet className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-slate-900 truncate">RG PRS Student &amp; Grading Records</h3>
+                    <p className="text-xs text-slate-500 font-mono select-all truncate mt-0.5">Spreadsheet ID: {config.googleSpreadsheetId}</p>
+                  </div>
+                </div>
+
+                {config.googleSyncLastTime && (
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    Last synchronized: <span className="text-slate-800 font-semibold">{new Date(config.googleSyncLastTime).toLocaleString()}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center space-x-2 pt-2">
+                  <a
+                    href={config.googleSpreadsheetUrl}
+                    target="_blank"
+                    referrerPolicy="no-referrer"
+                    rel="noreferrer"
+                    className="inline-flex items-center space-x-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-black border border-slate-200 text-xs font-semibold px-4 py-2 rounded-lg transition shadow-sm"
+                  >
+                    <span>Open Sheet in Drive</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <button
+                    onClick={handleDisconnectSheet}
+                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-semibold px-3 py-2 rounded-lg transition cursor-pointer"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Initialize Google Sheet</div>
+                <h3 className="font-semibold text-slate-900">No Master Spreadsheet Connected</h3>
+                <p className="text-xs text-slate-500 leading-normal">
+                  Create a dedicated Spreadsheet directly in your drive. Once initialized, all records inside the app will push and sync automatically.
+                </p>
+                <div className="pt-2">
+                  <button
+                    onClick={handleCreateNewSheet}
+                    disabled={isSyncing}
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-semibold text-xs px-4 py-2 rounded-lg transition shadow-sm inline-flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Create New Spreadsheet</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Link Existing Spreadsheet */}
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 flex flex-col justify-between">
+            <div className="space-y-3.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Link Existing Spreadsheet</div>
+              <h3 className="font-semibold text-slate-900">Connect to an Existing Sheets ID</h3>
+              <p className="text-[11px] text-slate-500 leading-normal">
+                Connecting a single Master Sheet for all users requires a backend Service Account configuration. The app will bypass user-specific authentication and write directly using these credentials.
+              </p>
+              
+              <div className="flex gap-2 pt-1.5">
+                <input
+                  type="text"
+                  value={sheetInputId}
+                  onChange={(e) => setSheetInputId(e.target.value)}
+                  placeholder="Paste URL or Spreadsheet ID here..."
+                  className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 flex-1 shrink-0"
+                />
+                <button
+                  onClick={handleLinkExistingSheet}
+                  disabled={isSyncing || !sheetInputId.trim()}
+                  className="bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-semibold text-xs px-4 py-1.5 rounded-lg transition shrink-0 cursor-pointer"
+                >
+                  Link Sheet
+                </button>
+              </div>
+            </div>
+            
+            <div className="text-[10px] text-slate-400 font-medium leading-relaxed mt-4">
+              Note: Make sure your connected Service Account email is added as an 'Editor' on the pasted Google Spreadsheet.
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div>
         <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
           <h2 className="text-xl font-bold text-slate-900">Platform Users & Roles</h2>
