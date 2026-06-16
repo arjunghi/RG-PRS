@@ -1,19 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, BookOpenCheck, FileBarChart, Settings, LogOut, FileSpreadsheet, ExternalLink } from "lucide-react";
+import { LayoutDashboard, Users, BookOpenCheck, FileBarChart, Settings, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { cn } from "../lib/utils";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebaseClient";
-import { importSheetsConfirmAndSync } from "../lib/googleSheetsSync";
 
 export default function DashboardLayout() {
-  const { user, signOut, accessToken } = useAuth();
+  const { user, signOut } = useAuth();
   const location = useLocation();
 
   const [sheetConfig, setSheetConfig] = useState<any>(null);
-  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
-  const [syncMessage, setSyncMessage] = useState("");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Real-time subscription to the school config settings
   useEffect(() => {
@@ -42,13 +40,18 @@ export default function DashboardLayout() {
   return (
     <div className="flex h-screen bg-slate-100 text-slate-800 font-sans">
       {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 border-r border-slate-800 bg-slate-900 text-slate-300 flex flex-col hidden md:flex">
-        <div className="px-6 py-6 flex items-center space-x-3 border-b border-slate-800">
-          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRRX05EAIqWz_IDcrGm0_YPLAwCv5vO7zBa39wgxOf_nA&s=10" alt="Logo" className="w-8 h-8 rounded-md bg-white p-0.5 object-contain" />
-          <div>
-            <h1 className="font-bold text-white text-lg leading-tight">RG PRS Workspace</h1>
-            <p className="text-xs text-slate-400 font-medium capitalize">{user?.appRole} Access</p>
-          </div>
+      <aside className={cn("w-64 flex-shrink-0 border-r border-slate-800 bg-slate-900 text-slate-300 flex flex-col md:flex absolute md:relative z-40 h-full transition-transform duration-300", isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0")}>
+        <div className="px-6 py-6 flex items-center justify-between space-x-3 border-b border-slate-800">
+           <div className="flex items-center space-x-3">
+              <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRRX05EAIqWz_IDcrGm0_YPLAwCv5vO7zBa39wgxOf_nA&s=10" alt="Logo" className="w-8 h-8 rounded-md bg-white p-0.5 object-contain" />
+              <div>
+                <h1 className="font-bold text-white text-lg leading-tight">RG PRS Workspace</h1>
+                <p className="text-xs text-slate-400 font-medium capitalize">{user?.appRole} Access</p>
+              </div>
+           </div>
+           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-400 hover:text-white">
+             <X className="w-5 h-5" />
+           </button>
         </div>
         
         <nav className="flex-1 px-4 py-8 space-y-1.5 overflow-y-auto">
@@ -60,6 +63,7 @@ export default function DashboardLayout() {
               <Link
                 key={item.name}
                 to={item.path}
+                onClick={() => setIsMobileMenuOpen(false)}
                 className={cn(
                   "flex items-center space-x-3 px-4 py-3 rounded-lg text-sm transition-all group",
                   isActive 
@@ -88,13 +92,21 @@ export default function DashboardLayout() {
       </aside>
 
       {/* Main Content Pane */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
+      <main className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
+        {/* Mobile menu backdrop */}
+        {isMobileMenuOpen && (
+           <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>
+        )}
+        
         {/* Mobile Header Topbar (Visible only on small screens) */}
         <header className="md:hidden flex items-center justify-between bg-white border-b border-slate-200 p-4 shrink-0">
           <div className="flex items-center space-x-2">
             <LayoutDashboard className="w-5 h-5 text-indigo-600" />
             <span className="font-bold text-slate-900 tracking-tight">RG PRS</span>
           </div>
+          <button onClick={() => setIsMobileMenuOpen(true)} className="p-1 text-slate-600 hover:bg-slate-100 rounded-lg">
+             <Menu className="w-6 h-6" />
+          </button>
         </header>
 
         {/* Dynamic Outlet */}

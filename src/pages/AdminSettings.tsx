@@ -424,7 +424,7 @@ export default function AdminSettings() {
             <button type="submit" className="bg-slate-900 hover:bg-black transition text-white font-semibold text-sm px-4 py-1.5 rounded-lg">Add/Pre-approve User</button>
           </form>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-sm">
            <table className="w-full text-left text-[13px] whitespace-nowrap">
               <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600">
                  <tr>
@@ -641,7 +641,7 @@ export default function AdminSettings() {
           <button type="submit" className="bg-blue-600 hover:bg-blue-700 transition text-white font-semibold text-sm px-4 py-2 rounded-lg">Assign Teacher</button>
         </form>
 
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-sm">
            <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600 text-xs uppercase tracking-wider">
                  <tr>

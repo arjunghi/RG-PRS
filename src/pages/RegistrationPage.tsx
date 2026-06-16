@@ -56,25 +56,33 @@ export default function RegistrationPage() {
     setIsSubmitting(true);
     try {
       const userRef = doc(db, "users", user.uid);
-      await setDoc(userRef, {
+      const snap = await getDoc(userRef);
+      
+      const updateData: any = {
         role,
         requestedGrade: role === "teacher" ? grade : null,
         requestedSubject: role === "teacher" ? subject : null,
         status: "pending",
         requestedAt: new Date().toISOString()
-      }, { merge: true });
+      };
+      
+      if (!snap.exists()) {
+         await setDoc(userRef, {
+           ...updateData,
+           email: user.email,
+           name: user.displayName || user.email,
+           createdAt: new Date().toISOString()
+         });
+      } else {
+         await updateDoc(userRef, updateData);
+      }
+      
       // Optionally update email-keyed doc if needed
       if (user.email) {
         const emailRef = doc(db, "users", user.email);
         const emailSnap = await getDoc(emailRef);
         if (emailSnap.exists()) {
-           await setDoc(emailRef, {
-              role,
-              requestedGrade: role === "teacher" ? grade : null,
-              requestedSubject: role === "teacher" ? subject : null,
-              status: "pending",
-              requestedAt: new Date().toISOString()
-           }, { merge: true });
+           await updateDoc(emailRef, updateData);
         }
       }
       
