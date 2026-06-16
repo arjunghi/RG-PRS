@@ -15,10 +15,16 @@ export default function ReportsPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [scores, setScores] = useState<any[]>([]);
 
-  const [activeSubject, setActiveSubject] = useState("");
-  const [activeGradeLevel, setActiveGradeLevel] = useState("All");
-  const [activeSection, setActiveSection] = useState("All");
+  const [activeSubject, setActiveSubject] = useState(() => localStorage.getItem("rp_subj") || "");
+  const [activeGradeLevel, setActiveGradeLevel] = useState(() => localStorage.getItem("rp_grade") || "All");
+  const [activeSection, setActiveSection] = useState(() => localStorage.getItem("rp_sec") || "All");
   const [config, setConfig] = useState<any>({ grades: [], sections: [] });
+
+  useEffect(() => {
+    localStorage.setItem("rp_subj", activeSubject);
+    localStorage.setItem("rp_grade", activeGradeLevel);
+    localStorage.setItem("rp_sec", activeSection);
+  }, [activeSubject, activeGradeLevel, activeSection]);
 
   // Marks Allocation state
   const [marksConfig, setMarksConfig] = useState({

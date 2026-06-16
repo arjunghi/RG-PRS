@@ -4,7 +4,8 @@ import { auth, db } from "./firebaseClient";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
 interface AppUser extends User {
-  appRole?: "admin" | "teacher" | "staff" | "student";
+  appRole?: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest";
+  status?: "approved" | "pending" | "rejected" | "unregistered";
 }
 
 interface AuthContextType {
@@ -43,19 +44,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cacheKey = `app_user_role_${firebaseUser.uid}`;
         
         // 1. Determine a base default role and check cache first
-        let appRole: "admin" | "teacher" | "staff" | "student" = "student";
+        let appRole: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest" = "guest";
+        let status: "approved" | "pending" | "rejected" | "unregistered" = "unregistered";
         if (email === "arjun@rajarshigurukul.edu.np") {
           appRole = "admin";
+          status = "approved";
         }
         
         const cachedRole = localStorage.getItem(cacheKey);
         if (cachedRole) {
           appRole = cachedRole as any;
         }
+        const cachedStatus = localStorage.getItem(`${cacheKey}_status`);
+        if (cachedStatus) {
+          status = cachedStatus as any;
+        }
 
         // Optimistically set the user and release loading UI so app starts instantly
         const enrichedUser = firebaseUser as AppUser;
         enrichedUser.appRole = appRole;
+        enrichedUser.status = status;
         setUser(enrichedUser);
         setLoading(false);
 
@@ -67,12 +75,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let targetDocRef = userDocRef;
           
           if (!userSnap.exists() && email) {
-            const emailDocRef = doc(db, "users", email);
-            const emailSnap = await getDoc(emailDocRef);
-            if (emailSnap.exists()) {
-               userSnap = emailSnap;
-               targetDocRef = emailDocRef;
-            }
+             const emailDocRef = doc(db, "users", email);
+             const emailSnap = await getDoc(emailDocRef);
+             if (emailSnap.exists()) {
+                userSnap = emailSnap;
+                targetDocRef = emailDocRef;
+             }
           }
           
           if (!userSnap.exists()) {
@@ -80,16 +88,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              await setDoc(targetDocRef, {
                email: email,
                name: firebaseUser.displayName || email,
-               role: appRole,
+               role: String(appRole),
+               status: String(status),
                createdAt: new Date().toISOString()
              });
           } else {
-             appRole = userSnap.data().role || appRole;
+             const data = userSnap.data();
+             appRole = data.role || appRole;
+             status = data.status || status;
           }
           
           // Cache verified role and update user state if changed
           localStorage.setItem(cacheKey, appRole);
-          const updatedUser = { ...enrichedUser, appRole } as AppUser;
+          localStorage.setItem(`${cacheKey}_status`, status);
+          const updatedUser = { ...enrichedUser, appRole, status } as AppUser;
           setUser(updatedUser);
         } catch (err) {
           console.warn("Profile sync from Firebase failed. Using fallback role:", appRole, err);

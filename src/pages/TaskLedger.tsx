@@ -12,9 +12,15 @@ export default function TaskLedger() {
   const [students, setStudents] = useState<any[]>([]);
   const [scores, setScores] = useState<Record<string, any>>({});
   
-  const [activeGradeLevel, setActiveGradeLevel] = useState("All");
-  const [activeSubject, setActiveSubject] = useState("");
-  const [activeSection, setActiveSection] = useState("All");
+  const [activeGradeLevel, setActiveGradeLevel] = useState(() => localStorage.getItem("tl_grade") || "All");
+  const [activeSubject, setActiveSubject] = useState(() => localStorage.getItem("tl_subj") || "");
+  const [activeSection, setActiveSection] = useState(() => localStorage.getItem("tl_sec") || "All");
+
+  useEffect(() => {
+    localStorage.setItem("tl_grade", activeGradeLevel);
+    localStorage.setItem("tl_subj", activeSubject);
+    localStorage.setItem("tl_sec", activeSection);
+  }, [activeGradeLevel, activeSubject, activeSection]);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [newTask, setNewTask] = useState({ name: "", maxMarks: 10, taskType: "HW", term: "Spring", date: new Date().toISOString().split("T")[0] });
   const [config, setConfig] = useState<any>({ grades: [], sections: [] });

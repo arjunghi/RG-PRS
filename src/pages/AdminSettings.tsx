@@ -407,10 +407,10 @@ export default function AdminSettings() {
       <div>
         <div className="flex flex-wrap items-center justify-between mb-4 gap-4">
           <h2 className="text-xl font-bold text-slate-900">Platform Users & Roles</h2>
-          <form onSubmit={addInvitedTeacher} className="flex space-x-2">
+          {/* <form onSubmit={addInvitedTeacher} className="flex space-x-2">
             <input type="email" value={newTeacherEmail} onChange={e => setNewTeacherEmail(e.target.value)} placeholder="Teacher Email Address..." className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-64" required />
             <button type="submit" className="bg-slate-900 hover:bg-black transition text-white font-semibold text-sm px-4 py-1.5 rounded-lg">Pre-register Teacher</button>
-          </form>
+          </form> */}
         </div>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
            <table className="w-full text-left text-[13px] whitespace-nowrap">
@@ -418,7 +418,9 @@ export default function AdminSettings() {
                  <tr>
                    <th className="px-4 py-3">Email</th>
                    <th className="px-4 py-3">Name</th>
-                   <th className="px-4 py-3">Role Configuration</th>
+                   <th className="px-4 py-3">Role</th>
+                   <th className="px-4 py-3">Requested Profile</th>
+                   <th className="px-4 py-3">Status</th>
                  </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-normal text-slate-700">
@@ -432,12 +434,65 @@ export default function AdminSettings() {
                           onChange={(e) => changeRole(u.id, e.target.value)}
                           className="border border-slate-200 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                         >
+                            <option value="guest">Guest / Pending</option>
                             <option value="student">Student</option>
                             <option value="staff">Staff</option>
                             <option value="teacher">Teacher</option>
+                            <option value="incharge">Incharge</option>
                             <option value="eca_teacher">ECA Teacher</option>
                             <option value="admin">Admin</option>
                         </select>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-slate-500">
+                        {u.requestedGrade && <span className="block">Grade: {u.requestedGrade}</span>}
+                        {u.requestedSubject && <span className="block">Subj: {u.requestedSubject}</span>}
+                      </td>
+                      <td className="px-4 py-2.5 flex items-center space-x-2">
+                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                           u.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                           u.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                           'bg-slate-100 text-slate-600'
+                        }`}>
+                           {u.status || 'UNREGISTERED'}
+                        </span>
+                        {u.status === 'pending' && (
+                          <div className="flex space-x-1 ml-2">
+                             <button
+                               onClick={async () => {
+                                 await updateDoc(doc(db, "users", u.id), { status: "approved" });
+                                 // Auto-assign if requested
+                                 if (u.role === "teacher" && u.requestedGrade && u.requestedSubject) {
+                                    const subjStr = String(u.requestedSubject).toLowerCase().replace(/\s+/g, '-');
+                                    const matchingSubject = subjects.find((s: any) => s.id.includes(subjStr) || s.name.toLowerCase() === String(u.requestedSubject).toLowerCase());
+                                    if (matchingSubject) {
+                                       const newAssignment = {
+                                           teacherEmail: u.email,
+                                           gradeLevel: u.requestedGrade,
+                                           section: "All" // Default to All sections
+                                       };
+                                       const existing = matchingSubject.assignments || [];
+                                       const isDup = existing.some((a: any) => a.teacherEmail === newAssignment.teacherEmail && a.gradeLevel === newAssignment.gradeLevel && a.section === newAssignment.section);
+                                       if (!isDup) {
+                                          await updateDoc(doc(db, "subjects", matchingSubject.id), { assignments: [...existing, newAssignment] });
+                                          triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
+                                       }
+                                    }
+                                 }
+                               }}
+                               className="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-emerald-700"
+                             >
+                               Approve
+                             </button>
+                             <button
+                               onClick={async () => {
+                                 await updateDoc(doc(db, "users", u.id), { status: "rejected" });
+                               }}
+                               className="bg-rose-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-rose-700"
+                             >
+                               Reject
+                             </button>
+                          </div>
+                        )}
                       </td>
                    </tr>
                  ))}

@@ -11,8 +11,13 @@ export default function EcaReportPage() {
   const [scores, setScores] = useState<any[]>([]);
   const [config, setConfig] = useState<any>({ grades: [], sections: [] });
   
-  const [activeGradeLevel, setActiveGradeLevel] = useState("All");
-  const [activeSection, setActiveSection] = useState("All");
+  const [activeGradeLevel, setActiveGradeLevel] = useState(() => localStorage.getItem("eca_grade") || "All");
+  const [activeSection, setActiveSection] = useState(() => localStorage.getItem("eca_sec") || "All");
+
+  useEffect(() => {
+    localStorage.setItem("eca_grade", activeGradeLevel);
+    localStorage.setItem("eca_sec", activeSection);
+  }, [activeGradeLevel, activeSection]);
 
   const isAdmin = user?.appRole === "admin";
   const permittedSubjects = isAdmin 
