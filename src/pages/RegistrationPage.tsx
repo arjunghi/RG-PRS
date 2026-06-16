@@ -3,7 +3,7 @@ import { useAuth } from "../lib/AuthContext";
 import { Navigate } from "react-router-dom";
 import { LogOut, Send, Clock, AlertCircle } from "lucide-react";
 import { db } from "../lib/firebaseClient";
-import { doc, updateDoc, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, setDoc } from "firebase/firestore";
 
 export default function RegistrationPage() {
   const { user, signOut, loading } = useAuth();
@@ -56,25 +56,25 @@ export default function RegistrationPage() {
     setIsSubmitting(true);
     try {
       const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
+      await setDoc(userRef, {
         role,
         requestedGrade: role === "teacher" ? grade : null,
         requestedSubject: role === "teacher" ? subject : null,
         status: "pending",
         requestedAt: new Date().toISOString()
-      });
+      }, { merge: true });
       // Optionally update email-keyed doc if needed
       if (user.email) {
         const emailRef = doc(db, "users", user.email);
         const emailSnap = await getDoc(emailRef);
         if (emailSnap.exists()) {
-           await updateDoc(emailRef, {
+           await setDoc(emailRef, {
               role,
               requestedGrade: role === "teacher" ? grade : null,
               requestedSubject: role === "teacher" ? subject : null,
               status: "pending",
               requestedAt: new Date().toISOString()
-           });
+           }, { merge: true });
         }
       }
       
@@ -148,7 +148,22 @@ export default function RegistrationPage() {
                       // required
                     >
                       <option value="" disabled>Select a grade</option>
-                      {config.grades.map((g: string) => <option key={g} value={g}>{g}</option>)}
+                      {config.grades.length > 0 ? (
+                        config.grades.map((g: string) => <option key={g} value={g}>{g}</option>)
+                      ) : (
+                        <>
+                          <option value="Grade 1">Grade 1</option>
+                          <option value="Grade 2">Grade 2</option>
+                          <option value="Grade 3">Grade 3</option>
+                          <option value="Grade 4">Grade 4</option>
+                          <option value="Grade 5">Grade 5</option>
+                          <option value="Grade 6">Grade 6</option>
+                          <option value="Grade 7">Grade 7</option>
+                          <option value="Grade 8">Grade 8</option>
+                          <option value="Grade 9">Grade 9</option>
+                          <option value="Grade 10">Grade 10</option>
+                        </>
+                      )}
                       <option value="Multiple">Multiple Grades</option>
                     </select>
                   </div>
@@ -164,7 +179,19 @@ export default function RegistrationPage() {
                       // required
                     />
                     <datalist id="subjectsList">
-                       {config.subjects.map((s: string) => <option key={s} value={s} />)}
+                       {config.subjects.length > 0 ? (
+                         config.subjects.map((s: string) => <option key={s} value={s} />)
+                       ) : (
+                         <>
+                           <option value="Math" />
+                           <option value="Science" />
+                           <option value="English" />
+                           <option value="Nepali" />
+                           <option value="Social Studies" />
+                           <option value="Computer" />
+                           <option value="ECA" />
+                         </>
+                       )}
                     </datalist>
                   </div>
                 </div>

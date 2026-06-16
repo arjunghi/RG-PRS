@@ -113,8 +113,6 @@ export default function StudentManagement() {
 
       alert(`Success! Imported ${names.length} students into ${multiGrade} - ${multiSection}.`);
       setMultilineNames("");
-      setMultiGrade("");
-      setMultiSection("");
       triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch (err) {
       console.error(err);
