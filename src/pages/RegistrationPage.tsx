@@ -20,6 +20,10 @@ export default function RegistrationPage() {
 
   const handleCheckStatus = () => {
     setIsChecking(true);
+    if (user?.uid) {
+      localStorage.removeItem(`app_user_role_${user.uid}`);
+      localStorage.removeItem(`app_user_role_${user.uid}_status`);
+    }
     setTimeout(() => {
       setIsChecking(false);
       window.location.reload();

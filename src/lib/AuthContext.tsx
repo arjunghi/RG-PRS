@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut } from "firebase/auth";
 import { auth, db } from "./firebaseClient";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 interface AppUser extends User {
   appRole?: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest";
@@ -72,27 +72,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userDocRef = doc(db, "users", firebaseUser.uid);
           let userSnap = await getDoc(userDocRef);
           
-          let targetDocRef = userDocRef;
           const emailKey = email.toLowerCase().trim();
           
-          if (!userSnap.exists() && emailKey) {
+          if (emailKey) {
              const emailDocRef = doc(db, "users", emailKey);
              const emailSnap = await getDoc(emailDocRef);
              if (emailSnap.exists()) {
-                userSnap = emailSnap;
-                targetDocRef = emailDocRef;
+                const enrollData = emailSnap.data();
                 
-                // Create the UID document right away to migrate the user
-                const data = emailSnap.data();
+                // Migrate or merge pre-enrolled fields into the secure UID document
+                await setDoc(userDocRef, {
+                   ...enrollData,
+                   email: emailKey, // ensure normalized email is set
+                   updatedAt: new Date().toISOString()
+                }, { merge: true });
+                
+                // Refresh our user snapshot from Firestore
+                userSnap = await getDoc(userDocRef);
+                
+                // Delete the email-keyed document to prevent duplicate rows in user registries
                 try {
-                   await setDoc(userDocRef, {
-                      ...data,
-                      createdAt: new Date().toISOString()
-                   });
-                   // Now target the UID doc
-                   targetDocRef = userDocRef;
+                   await deleteDoc(emailDocRef);
                 } catch(e) {
-                   console.log("Could not migrate email doc to uid doc", e);
+                   console.warn("Could not delete processed email-keyed user doc:", e);
                 }
              }
           }
@@ -100,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let displayName = firebaseUser.displayName || email;
           if (!userSnap.exists()) {
              // Create initial profile
-             await setDoc(targetDocRef, {
+             await setDoc(userDocRef, {
                email: emailKey,
                name: displayName,
                role: String(appRole),
