@@ -123,16 +123,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (emailKey === "arjun@rajarshigurukul.edu.np") {
              appRole = "admin";
              status = "approved";
-             // Cleanly update status & role in firestore as well if it's currently mismatching
-             if (userSnap.exists() && (userSnap.data()?.role !== "admin" || userSnap.data()?.status !== "approved")) {
-                await setDoc(userDocRef, { role: "admin", status: "approved" }, { merge: true });
-             }
+             // Cleanly update status & role in firestore as well
+             await setDoc(userDocRef, { role: "admin", status: "approved" }, { merge: true });
           }
           
           // Cache verified role and update user state if changed
           localStorage.setItem(cacheKey, appRole);
           localStorage.setItem(`${cacheKey}_status`, status);
-          const updatedUser = { ...enrichedUser, appRole, status, displayName } as AppUser;
+          
+          // Re-fetch document snapshot optionally to have newest admin data as well
+          const finalSnap = await getDoc(userDocRef);
+          const finalData = finalSnap.exists() ? finalSnap.data() : {};
+
+          const updatedUser = { 
+            ...enrichedUser, 
+            ...finalData,
+            appRole, 
+            status, 
+            displayName 
+          } as AppUser;
           setUser(updatedUser);
         } catch (err) {
           console.warn("Profile sync from Firebase failed. Using fallback role:", appRole, err);

@@ -33,7 +33,13 @@ export default function TaskLedger() {
 
   const permittedSubjects = isAdmin 
     ? subjects 
-    : subjects.filter(s => (s.assignments || []).some((a: any) => String(a.teacherEmail || "").toLowerCase().trim() === String(user?.email || "").toLowerCase().trim()));
+    : subjects.filter(s => {
+        const isAssigned = (s.assignments || []).some((a: any) => 
+          String(a.teacherEmail || "").toLowerCase().trim() === String(user?.email || "").toLowerCase().trim()
+        );
+        const hasMainGrade = user?.requestedGrade && String(s.gradeLevel || "").toLowerCase().trim() === String(user.requestedGrade).toLowerCase().trim();
+        return isAssigned || hasMainGrade;
+      });
 
   // Determine allowed grades and sections based on the selected subject's assignments
   let allowedGrades = Array.from(new Set([
@@ -54,13 +60,18 @@ export default function TaskLedger() {
      const sub = subjects.find(s => s.id === activeSubject);
      if (sub) {
         const assigns = (sub.assignments || []).filter((a: any) => String(a.teacherEmail || "").toLowerCase().trim() === String(user?.email || "").toLowerCase().trim());
-        const hasAllGrades = assigns.some((a: any) => a.gradeLevel === "All");
-        const hasAllSections = assigns.some((a: any) => a.section === "All");
-        if (!hasAllGrades) {
-           allowedGrades = allowedGrades.filter(g => assigns.some((a: any) => a.gradeLevel === g));
-        }
-        if (!hasAllSections) {
-           allowedSections = allowedSections.filter(sec => assigns.some((a: any) => a.section === sec));
+        if (assigns.length > 0) {
+           const hasAllGrades = assigns.some((a: any) => a.gradeLevel === "All");
+           const hasAllSections = assigns.some((a: any) => a.section === "All");
+           if (!hasAllGrades) {
+              allowedGrades = allowedGrades.filter(g => assigns.some((a: any) => a.gradeLevel === g));
+           }
+           if (!hasAllSections) {
+              allowedSections = allowedSections.filter(sec => assigns.some((a: any) => a.section === sec));
+           }
+        } else if (user?.requestedGrade) {
+           // Fallback to their user profile's assigned/requested grade level
+           allowedGrades = allowedGrades.filter(g => String(g).toLowerCase().trim() === String(user.requestedGrade).toLowerCase().trim());
         }
      }
   }

@@ -55,7 +55,10 @@ export default function DashboardLayout() {
     return unsub;
   }, [user]);
 
-  const hasPermission = user?.appRole === "admin" || hasAssignments;
+  const hasPermission = 
+    user?.appRole === "admin" || 
+    (user?.status === "approved" && ["teacher", "eca_teacher", "incharge", "staff"].includes(user?.appRole || "")) ||
+    hasAssignments;
 
   useEffect(() => {
     if (!checkingAssignments && !hasPermission && location.pathname !== "/") {

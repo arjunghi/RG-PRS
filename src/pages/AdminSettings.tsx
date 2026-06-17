@@ -489,6 +489,7 @@ export default function AdminSettings() {
                    <th className="px-4 py-3">Email</th>
                    <th className="px-4 py-3">Full Name</th>
                    <th className="px-4 py-3">Role</th>
+                   <th className="px-4 py-3">Assigned Grade</th>
                    <th className="px-4 py-3">Grade &amp; Subject Access</th>
                    <th className="px-4 py-3">Status</th>
                  </tr>
@@ -511,6 +512,29 @@ export default function AdminSettings() {
                             <option value="incharge">Incharge</option>
                             <option value="eca_teacher">ECA Teacher</option>
                             <option value="admin">Admin</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <select 
+                          value={u.requestedGrade || ""} 
+                          onChange={async (e) => {
+                            const newGrade = e.target.value;
+                            const q = query(collection(db, "users"), where("email", "==", u.email));
+                            const snaps = await getDocs(q);
+                            if (!snaps.empty) {
+                              const batch = writeBatch(db);
+                              snaps.docs.forEach((d) => {
+                                batch.update(d.ref, { requestedGrade: newGrade });
+                              });
+                              await batch.commit();
+                            }
+                          }}
+                          className="border border-slate-200 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="">None / All</option>
+                          {(config.gradeMappings || []).map((g: any) => (
+                            <option key={g.grade} value={g.grade}>{g.grade}</option>
+                          ))}
                         </select>
                       </td>
                       <td className="px-4 py-2.5">
