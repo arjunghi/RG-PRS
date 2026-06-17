@@ -119,6 +119,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              status = data.status || status;
              displayName = data.name || displayName;
           }
+
+          if (emailKey === "arjun@rajarshigurukul.edu.np") {
+             appRole = "admin";
+             status = "approved";
+             // Cleanly update status & role in firestore as well if it's currently mismatching
+             if (userSnap.exists() && (userSnap.data()?.role !== "admin" || userSnap.data()?.status !== "approved")) {
+                await setDoc(userDocRef, { role: "admin", status: "approved" }, { merge: true });
+             }
+          }
           
           // Cache verified role and update user state if changed
           localStorage.setItem(cacheKey, appRole);

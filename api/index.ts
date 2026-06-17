@@ -358,11 +358,17 @@ app.post("/api/sheets/read", async (req, res) => {
       const typeIdx = findColIdx(headers, ["type", "category"]);
       const ecaIdx = findColIdx(headers, ["eca", "criteria"]);
       const idIdx = findColIdx(headers, ["id", "code"]);
+      const gradeIdx = findColIdx(headers, ["grade", "level", "class", "grade level"]);
+      const teachersIdx = findColIdx(headers, ["teacher", "emails", "teacher emails"]);
+      const assignIdx = findColIdx(headers, ["assignment", "assign", "assignments"]);
       
       const nI = nameIdx >= 0 ? nameIdx : 1;
       const tI = typeIdx >= 0 ? typeIdx : 2;
       const eI = ecaIdx >= 0 ? ecaIdx : 3;
       const iI = idIdx >= 0 ? idIdx : 0;
+      const gI = gradeIdx >= 0 ? gradeIdx : -1;
+      const teI = teachersIdx >= 0 ? teachersIdx : -1;
+      const aI = assignIdx >= 0 ? assignIdx : -1;
 
       for (let i = 1; i < subjectRows.length; i++) {
         const row = subjectRows[i];
@@ -374,12 +380,49 @@ app.post("/api/sheets/read", async (req, res) => {
         const ecaCriteriaStr = row[eI] || "";
         const ecaCriteria = ecaCriteriaStr ? ecaCriteriaStr.split(/[,|]/).map((c: string) => c.trim()).filter(Boolean) : [];
 
+        // Parse assignments JSON safely
+        const assignStr = (aI >= 0 && row[aI]) ? String(row[aI]).trim() : "";
+        let parsedAssignments: any[] = [];
+        if (assignStr) {
+          try {
+            parsedAssignments = JSON.parse(assignStr);
+            if (!Array.isArray(parsedAssignments)) {
+              parsedAssignments = [];
+            }
+          } catch (e) {
+            console.warn("Failed to parse subject assignments JSON:", assignStr, e);
+          }
+        }
+
+        // Get grade level, fallback to extracting from ID or default to "General"
+        let rowGrade = (gI >= 0 && row[gI]) ? String(row[gI]).trim() : "";
+        if (!rowGrade) {
+          const subId = String(row[iI] || "");
+          const match = subId.match(/grade-(\d+|general)/i);
+          if (match && match[1]) {
+             rowGrade = match[1].toLowerCase() === "general" ? "General" : "Grade " + match[1];
+          } else {
+             rowGrade = "General";
+          }
+        }
+
+        // Get teacher emails, fallback to scanning assignments
+        let rowTeacherEmails: string[] = [];
+        const teachersStr = (teI >= 0 && row[teI]) ? String(row[teI]).trim() : "";
+        if (teachersStr) {
+          rowTeacherEmails = teachersStr.split(/[,|;]/).map((e: string) => e.trim().toLowerCase()).filter(Boolean);
+        } else {
+          rowTeacherEmails = Array.from(new Set(parsedAssignments.map((a: any) => String(a.teacherEmail).trim().toLowerCase()).filter(Boolean)));
+        }
+
         subjects.push({
           id: row[iI] ? String(row[iI]) : ("subject-" + row[nI]).toLowerCase().replace(/\s+/g, '-'),
           name: row[nI],
           type: typeVal,
+          gradeLevel: rowGrade,
+          teacherEmails: rowTeacherEmails,
           ecaCriteria: ecaCriteria,
-          assignments: []
+          assignments: parsedAssignments
         });
       }
     }

@@ -68,11 +68,13 @@ export async function syncAllFirestoreToSheets(accessToken: string, spreadsheetI
   // Translate 1b. Subjects
   const subjects = subjectsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
   const subjectRows = [
-    ["Subject ID", "Name", "Type", "ECA Criteria", "Assignments"],
+    ["Subject ID", "Name", "Type", "Grade Level", "Teacher Emails", "ECA Criteria", "Assignments"],
     ...subjects.map((s) => [
       s.id,
       s.name || "",
       s.type || "",
+      s.gradeLevel || "General",
+      (s.teacherEmails || []).join(", "),
       (s.ecaCriteria || []).join(", "),
       JSON.stringify(s.assignments || []),
     ])
@@ -427,6 +429,8 @@ export async function importSheetsConfirmAndSync(accessToken: string, spreadshee
       await setDoc(doc(db, "subjects", sub.id), {
         name: sub.name,
         type: sub.type,
+        gradeLevel: sub.gradeLevel || "General",
+        teacherEmails: sub.teacherEmails || [],
         ecaCriteria: sub.ecaCriteria || [],
         assignments: sub.assignments || []
       });

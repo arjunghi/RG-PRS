@@ -268,20 +268,25 @@ export default function AdminSettings() {
       const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${sId}/edit`;
       setSheetInputId("");
       
+      // Always save the connection immediately in Firebase Config
+      await saveSheetConnection(sId, spreadsheetUrl);
+
       if (accessToken) {
-        setSyncStatus({ type: "info", message: "Spreadsheet linked! Reading existing worksheets and auto-importing data..." });
-        const result = await importSheetsConfirmAndSync(accessToken, sId);
+        setSyncStatus({ type: "info", message: "Spreadsheet linked! Seeding/Backing up your Firebase database to the spreadsheet..." });
+        await syncAllFirestoreToSheets(accessToken, sId);
         setSyncStatus({ 
           type: "success", 
-          message: `Spreadsheet linked & auto-imported successfully! Read ${result.studentsCount} students, ${result.subjectsCount} subjects, ${result.tasksCount} tasks, and ${result.scoresCount} scores into your app database.` 
+          message: "Spreadsheet linked successfully! Your current Firebase database was successfully backed up to the Google Sheet." 
         });
       } else {
-        await saveSheetConnection(sId, spreadsheetUrl);
-        setSyncStatus({ type: "success", message: "Spreadsheet linked successfully! Connect your Google Account above to import and synchronize databases." });
+        setSyncStatus({ 
+          type: "success", 
+          message: "Spreadsheet linked successfully! Connect your Google Account above or refresh to initiate automated backups." 
+        });
       }
     } catch (err: any) {
       console.error(err);
-      setSyncStatus({ type: "error", message: `Failed to link and import spreadsheet: ${err.message || err}` });
+      setSyncStatus({ type: "error", message: `Failed to link spreadsheet: ${err.message || err}` });
     } finally {
       setIsSyncing(false);
     }
