@@ -78,13 +78,33 @@ export default function AdminSettings() {
     if(!newTeacherEmail || !newTeacherName.trim()) return;
     try {
       const email = newTeacherEmail.toLowerCase().trim();
-      await setDoc(doc(db, "users", email), {
-        email: email,
+      
+      // Check if user already logged in and created a doc
+      const q = query(collection(db, "users"), where("email", "==", email));
+      const snaps = await getDocs(q);
+      
+      const newRoleData = {
         name: newTeacherName.trim(),
         role: newUserRole,
         status: "approved",
-        createdAt: new Date().toISOString()
-      });
+      };
+
+      if (!snaps.empty) {
+         // Update existing user doc
+         const batch = writeBatch(db);
+         snaps.docs.forEach((d) => {
+            batch.update(d.ref, { ...newRoleData, updatedAt: new Date().toISOString() });
+         });
+         await batch.commit();
+      } else {
+         // Create Pre-enrolled Profile
+         await setDoc(doc(db, "users", email), {
+           ...newRoleData,
+           email: email,
+           createdAt: new Date().toISOString()
+         });
+      }
+      
       setNewTeacherName("");
       setNewTeacherEmail("");
       setNewUserRole("teacher");
