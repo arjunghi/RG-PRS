@@ -150,11 +150,19 @@ export default function AuthPage() {
             </div>
 
             {/* Helper links */}
-            <div className="border-t border-slate-900/80 pt-6 text-center space-y-1 text-[11px] font-medium text-slate-500">
-               <p>Unenrolled or need subject credentials?</p>
-               <p className="text-blue-500 hover:underline cursor-pointer">
-                 Contact arjun@rajarshigurukul.edu.np
-               </p>
+            <div className="border-t border-slate-900/80 pt-6 text-center space-y-3 text-[11px] font-medium text-slate-500">
+               <div>
+                 <p>Students & Parents</p>
+                 <a href="/student-portal" className="text-blue-500 hover:text-blue-400 font-bold underline transition-colors cursor-pointer text-sm">
+                   Open Student Portal
+                 </a>
+               </div>
+               <div className="pt-2">
+                 <p>Unenrolled or need subject credentials?</p>
+                 <p className="text-blue-500 hover:underline cursor-pointer">
+                   Contact arjun@rajarshigurukul.edu.np
+                 </p>
+               </div>
             </div>
 
           </div>

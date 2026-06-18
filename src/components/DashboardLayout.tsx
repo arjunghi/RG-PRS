@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, BookOpenCheck, FileBarChart, Settings, LogOut, Menu, X, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Users, BookOpenCheck, FileBarChart, Settings, LogOut, Menu, X, MessageSquare, AlertTriangle } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { cn } from "../lib/utils";
 import { doc, onSnapshot, collection, updateDoc, serverTimestamp, query, where } from "firebase/firestore";
@@ -9,11 +9,8 @@ import { db } from "../lib/firebaseClient";
 export default function DashboardLayout() {
   const { user, signOut } = useAuth();
   const location = useLocation();
-
   const [sheetConfig, setSheetConfig] = useState<any>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [hasAssignments, setHasAssignments] = useState<boolean>(false);
-  const [checkingAssignments, setCheckingAssignments] = useState<boolean>(true);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
 
   // Update presence
@@ -66,46 +63,16 @@ export default function DashboardLayout() {
     return unsub;
   }, [user]);
 
-  // Real-time check if user is admin or has a subject assignment
-  useEffect(() => {
-    if (!user) {
-      setCheckingAssignments(false);
-      return;
-    }
-    if (user.appRole === "admin") {
-      setHasAssignments(true);
-      setCheckingAssignments(false);
-      return;
-    }
-    
-    // Listen to subjects to see if any assignments belong to this teacher/staff
-    const unsub = onSnapshot(collection(db, "subjects"), (snap) => {
-      const subs = snap.docs.map(d => d.data());
-      const hasAny = subs.some((s: any) => 
-        (s.assignments || []).some((a: any) => 
-          String(a.teacherEmail).toLowerCase().trim() === String(user.email).toLowerCase().trim()
-        )
-      );
-      setHasAssignments(hasAny);
-      setCheckingAssignments(false);
-    }, (err) => {
-      console.error("Error reading subjects for permission check:", err);
-      setCheckingAssignments(false);
-    });
-    return unsub;
-  }, [user]);
-
   const hasPermission = 
     user?.appRole === "admin" || 
-    (user?.status === "approved" && ["teacher", "eca_teacher", "incharge", "staff"].includes(user?.appRole || "")) ||
-    hasAssignments;
+    (user?.status === "approved" && ["teacher", "eca_teacher", "incharge", "staff"].includes(user?.appRole || ""));
 
   useEffect(() => {
-    if (!checkingAssignments && !hasPermission && location.pathname !== "/") {
+    if (!hasPermission && location.pathname !== "/") {
       // Safely redirect unpermitted users accessing sub-modules back to Overview
       window.location.replace("/");
     }
-  }, [checkingAssignments, hasPermission, location.pathname]);
+  }, [hasPermission, location.pathname]);
 
   const navItems = hasPermission ? [
     { name: "Overview", path: "/", icon: LayoutDashboard },
@@ -270,7 +237,7 @@ export default function DashboardLayout() {
         {/* Dynamic Canvas Content */}
         <div className="flex-1 overflow-auto bg-white p-4 md:p-8 custom-scrollbar">
           <div className="max-w-7xl mx-auto w-full pb-10">
-            <Outlet context={{ hasPermission, checkingAssignments }} />
+            <Outlet context={{ hasPermission }} />
           </div>
         </div>
 

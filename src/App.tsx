@@ -11,6 +11,7 @@ import ReportsPage from "./pages/ReportsPage";
 import EcaReportPage from "./pages/EcaReportPage";
 import AdminSettings from "./pages/AdminSettings";
 import StaffChat from "./pages/StaffChat";
+import StudentPortal from "./pages/StudentPortal";
 
 const ProtectedRoute = ({ children, requireAdmin = false }: any) => {
   const { user, loading } = useAuth();
@@ -29,6 +30,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<AuthPage />} />
         <Route path="/register" element={<RegistrationPage />} />
+        <Route path="/student-portal" element={<StudentPortal />} />
         
         <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
           <Route index element={<DashboardHome />} />

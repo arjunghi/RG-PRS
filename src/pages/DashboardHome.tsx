@@ -7,9 +7,8 @@ import { useOutletContext } from "react-router-dom";
 
 export default function DashboardHome() {
   const { user } = useAuth();
-  const outletCtx = useOutletContext<{ hasPermission: boolean; checkingAssignments: boolean }>();
+  const outletCtx = useOutletContext<{ hasPermission: boolean }>();
   const hasPermission = outletCtx ? outletCtx.hasPermission : true;
-  const checkingAssignments = outletCtx ? outletCtx.checkingAssignments : false;
 
   const [stats, setStats] = useState({ subjects: 0, tasks: 0, students: 0 });
   const [quadrants, setQuadrants] = useState({ excellence: 0, satisfactory: 0, progress: 0, critical: 0 });
@@ -82,17 +81,6 @@ export default function DashboardHome() {
     
     return () => unsubTasks();
   }, [hasPermission]);
-
-  if (checkingAssignments) {
-    return (
-      <div className="flex bg-slate-50 min-h-[50vh] items-center justify-center p-6 text-center rounded-2xl border border-slate-100">
-        <div className="space-y-4">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-slate-500 font-semibold text-xs tracking-wider uppercase">Validating Workspace Permissions...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!hasPermission) {
     return (
