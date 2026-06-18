@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut } from "firebase/auth";
 import { auth, db } from "./firebaseClient";
-import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 
 interface AppUser extends User {
   appRole?: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest";
@@ -38,7 +38,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let unsubUserDoc: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (unsubUserDoc) {
+        unsubUserDoc();
+        unsubUserDoc = null;
+      }
+
       if (firebaseUser) {
         const email = firebaseUser.email || "";
         const cacheKey = `app_user_role_${firebaseUser.uid}`;
@@ -46,32 +53,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 1. Determine a base default role and check cache first
         let appRole: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest" = "guest";
         let status: "approved" | "pending" | "rejected" | "unregistered" = "unregistered";
-        if (email === "arjun@rajarshigurukul.edu.np") {
+        if (email.toLowerCase().trim() === "arjun@rajarshigurukul.edu.np") {
           appRole = "admin";
           status = "approved";
         }
         
+        let hasCachedRole = false;
+        
         const cachedRole = localStorage.getItem(cacheKey);
         if (cachedRole) {
           appRole = cachedRole as any;
+          hasCachedRole = true;
         }
         const cachedStatus = localStorage.getItem(`${cacheKey}_status`);
         if (cachedStatus) {
           status = cachedStatus as any;
         }
 
-        // Optimistically set the user and release loading UI so app starts instantly
+        // Optimistically set the user
         const enrichedUser = firebaseUser as AppUser;
-        enrichedUser.appRole = appRole;
-        enrichedUser.status = status;
-        setUser(enrichedUser);
-        setLoading(false);
+        setUser({
+          ...enrichedUser,
+          appRole,
+          status,
+          role: appRole,
+        });
+        
+        // Only release loading UI if we have cache or it's admin, otherwise wait for DB
+        if (hasCachedRole || email.toLowerCase().trim() === "arjun@rajarshigurukul.edu.np") {
+           setLoading(false);
+        }
 
         // 2. Fetch or create user document to get/update roles in the background
         try {
           const userDocRef = doc(db, "users", firebaseUser.uid);
-          let userSnap = await getDoc(userDocRef);
-          
           const emailKey = email.toLowerCase().trim();
           
           if (emailKey) {
@@ -88,63 +103,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       updatedAt: new Date().toISOString()
                    }, { merge: true });
                    
-                   // Refresh our user snapshot from Firestore
-                   userSnap = await getDoc(userDocRef);
-                   
                    // Delete the email-keyed document to prevent duplicate rows in user registries
                    try {
                       await deleteDoc(emailDocRef);
-                   } catch(e) {
+                    } catch(e) {
                       console.warn("Could not delete processed email-keyed user doc:", e);
-                   }
+                    }
                 }
              } catch(errSnap) {
-                console.warn("Failed pre-enrolled check or migration:", errSnap);
+                 console.warn("Failed pre-enrolled check or migration:", errSnap);
              }
           }
           
-          let displayName = firebaseUser.displayName || email;
-          if (!userSnap.exists()) {
-             // Create initial profile
-             await setDoc(userDocRef, {
-               email: emailKey,
-               name: displayName,
-               role: String(appRole),
-               status: String(status),
-               createdAt: new Date().toISOString()
-             });
-          } else {
-             const data = userSnap.data();
-             appRole = data.role || appRole;
-             status = data.status || status;
-             displayName = data.name || displayName;
-          }
+          // Setup real-time snapshot on the user's secure document
+          unsubUserDoc = onSnapshot(userDocRef, (snap) => {
+             let finalData: any = {};
+             let snapshotAppRole = appRole;
+             let snapshotStatus = status;
+             let snapshotDisplayName = firebaseUser.displayName || email;
 
-          if (emailKey === "arjun@rajarshigurukul.edu.np") {
-             appRole = "admin";
-             status = "approved";
-             // Cleanly update status & role in firestore as well
-             await setDoc(userDocRef, { role: "admin", status: "approved" }, { merge: true });
-          }
-          
-          // Cache verified role and update user state if changed
-          localStorage.setItem(cacheKey, appRole);
-          localStorage.setItem(`${cacheKey}_status`, status);
-          
-          // Re-fetch document snapshot optionally to have newest admin data as well
-          const finalSnap = await getDoc(userDocRef);
-          const finalData = finalSnap.exists() ? finalSnap.data() : {};
+             if (!snap.exists()) {
+                // Create initial profile
+                setDoc(userDocRef, {
+                  email: emailKey,
+                  name: snapshotDisplayName,
+                  role: String(appRole),
+                  status: String(status),
+                  createdAt: new Date().toISOString()
+                });
+             } else {
+                finalData = snap.data();
+                snapshotAppRole = finalData.role || snapshotAppRole;
+                snapshotStatus = finalData.status || snapshotStatus;
+                snapshotDisplayName = finalData.name || snapshotDisplayName;
+             }
 
-          const updatedUser = { 
-            ...enrichedUser, 
-            ...finalData,
-            appRole, 
-            status, 
-            displayName 
-          } as AppUser;
-          setUser(updatedUser);
+             if (emailKey === "arjun@rajarshigurukul.edu.np") {
+                snapshotAppRole = "admin";
+                snapshotStatus = "approved";
+             }
+
+             // Cache verified role and status
+             localStorage.setItem(cacheKey, snapshotAppRole);
+             localStorage.setItem(`${cacheKey}_status`, snapshotStatus);
+
+             setUser({
+               ...firebaseUser,
+               ...finalData,
+               role: snapshotAppRole, // Expose legacy role
+               appRole: snapshotAppRole as any,
+               status: snapshotStatus as any,
+               displayName: snapshotDisplayName
+             } as AppUser);
+             
+             setLoading(false);
+          }, (err) => {
+             console.warn("Error in user doc snapshot listener:", err);
+             setLoading(false);
+          });
+
         } catch (err) {
-          console.warn("Profile sync from Firebase failed. Using fallback role:", appRole, err);
+           console.warn("Profile sync from Firebase failed. Using fallback role:", appRole, err);
+           setLoading(false);
         }
       } else {
         setUser(null);
@@ -153,7 +173,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubUserDoc) unsubUserDoc();
+    };
   }, []);
 
   const signIn = async () => {

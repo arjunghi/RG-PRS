@@ -55,14 +55,18 @@ export default function AdminSettings() {
     try {
       const q = query(collection(db, "users"), where("email", "==", email));
       const snaps = await getDocs(q);
+      const updates: any = { role: newRole };
+      if (newRole !== "guest") {
+         updates.status = "approved";
+      }
       if (!snaps.empty) {
          const batch = writeBatch(db);
          snaps.docs.forEach((d) => {
-            batch.update(d.ref, { role: newRole });
+            batch.update(d.ref, updates);
          });
          await batch.commit();
       } else {
-         await updateDoc(doc(db, "users", userId), { role: newRole });
+         await updateDoc(doc(db, "users", userId), updates);
       }
     } catch(err) {
       handleFirestoreError(err, OperationType.UPDATE, "users");
@@ -565,7 +569,7 @@ export default function AdminSettings() {
                         }`}>
                            {u.status || 'UNREGISTERED'}
                         </span>
-                        {u.status === 'pending' && (
+                        {u.status !== 'approved' && (
                           <div className="flex space-x-1 ml-2">
                              <button
                                onClick={async () => {

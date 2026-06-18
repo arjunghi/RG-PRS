@@ -10,6 +10,7 @@ import TaskLedger from "./pages/TaskLedger";
 import ReportsPage from "./pages/ReportsPage";
 import EcaReportPage from "./pages/EcaReportPage";
 import AdminSettings from "./pages/AdminSettings";
+import StaffChat from "./pages/StaffChat";
 
 const ProtectedRoute = ({ children, requireAdmin = false }: any) => {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="ledger" element={<TaskLedger />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="eca-reports" element={<EcaReportPage />} />
+          <Route path="chat" element={<StaffChat />} />
           <Route path="settings" element={<ProtectedRoute requireAdmin><AdminSettings /></ProtectedRoute>} />
         </Route>
       </Routes>
