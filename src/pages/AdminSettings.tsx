@@ -213,14 +213,18 @@ export default function AdminSettings() {
     try {
       const name = type === "academic" ? newSubj : newEca;
       const selectedGrade = type === "academic" ? newSubjGrade : newEcaGrade;
-      const sId = (type + "-" + selectedGrade + "-" + name).toLowerCase().replace(/\s+/g, '-').trim();
+      const sId = (type + "-" + selectedGrade + "-" + name)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')   // replace all non-alphanumeric with hyphen
+        .replace(/(^-|-$)/g, '');      // strip trailing/leading hyphens
       
       const payload: any = {
          name: name,
          type: type,
-         gradeLevel: selectedGrade,
+         gradeLevel: selectedGrade || "General",
          teacherEmails: [],
-         assignments: []
+         assignments: [],
+         createdAt: new Date().toISOString()
       };
       
       if(type === "eca") {

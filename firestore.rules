@@ -7,19 +7,19 @@ service cloud.firestore {
     function isVerified() { return true; }
     
     function isAbsoluteAdmin() {
-      return request.auth != null && request.auth.token.email == 'arjun@rajarshigurukul.edu.np';
+      return request.auth != null && request.auth.token.email != null && request.auth.token.email.lower() == 'arjun@rajarshigurukul.edu.np';
     }
     
     function getUserData() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
         ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data 
-        : get(/databases/$(database)/documents/users/$(request.auth.token.email)).data;
+        : get(/databases/$(database)/documents/users/$(request.auth.token.email.lower())).data;
     }
     
     function hasRole(allowedRoles) {
       return isAbsoluteAdmin() || 
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in allowedRoles) ||
-        (request.auth.token.email != null && exists(/databases/$(database)/documents/users/$(request.auth.token.email)) && get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role in allowedRoles);
+        (request.auth.token.email != null && exists(/databases/$(database)/documents/users/$(request.auth.token.email.lower())) && get(/databases/$(database)/documents/users/$(request.auth.token.email.lower())).data.role in allowedRoles);
     }
     
     function isAdmin() { return hasRole(['admin']); }
@@ -44,11 +44,11 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isAbsoluteAdmin() || request.auth.token.email == userId);
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isAbsoluteAdmin() || request.auth.token.email.lower() == userId);
       allow list: if isSignedIn() && isAdmin();
       allow create: if isSignedIn() && isVerified() && isValidUser(incoming()) && ( request.auth.uid == userId || isAdmin() );
-      allow update: if isSignedIn() && isVerified() && (isAdmin() || ((request.auth.uid == userId || request.auth.token.email == userId) && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'requestedGrade', 'requestedSubject', 'status', 'requestedAt', 'name', 'email', 'updatedAt', 'createdAt']))) && isValidUser(incoming());
-      allow delete: if isSignedIn() && (isAdmin() || request.auth.token.email == userId);
+      allow update: if isSignedIn() && isVerified() && (isAdmin() || ((request.auth.uid == userId || request.auth.token.email.lower() == userId) && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'requestedGrade', 'requestedSubject', 'status', 'requestedAt', 'name', 'email', 'updatedAt', 'createdAt']))) && isValidUser(incoming());
+      allow delete: if isSignedIn() && (isAdmin() || request.auth.token.email.lower() == userId);
     }
 
     function isValidSubject(data) {
