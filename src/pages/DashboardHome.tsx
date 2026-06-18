@@ -13,17 +13,23 @@ export default function DashboardHome() {
   const [stats, setStats] = useState({ subjects: 0, tasks: 0, students: 0 });
   const [quadrants, setQuadrants] = useState({ excellence: 0, satisfactory: 0, progress: 0, critical: 0 });
 
+  const [tasksList, setTasksList] = useState<any[]>([]);
+  const [scoresList, setScoresList] = useState<any[]>([]);
+  const [studentsList, setStudentsList] = useState<any[]>([]);
+
   useEffect(() => {
     if (!hasPermission) return;
     const unsubStudents = onSnapshot(collection(db, "students"), snap => {
        setStats(s => ({ ...s, students: snap.size }));
-    });
+    }, err => console.error("Students snapshot err:", err));
+    
     const unsubTasks = onSnapshot(collection(db, "tasks"), snap => {
        setStats(s => ({ ...s, tasks: snap.size }));
-    });
+    }, err => console.error("Tasks snapshot err:", err));
+    
     const unsubSubjects = onSnapshot(collection(db, "subjects"), snap => {
        setStats(s => ({ ...s, subjects: snap.size }));
-    });
+    }, err => console.error("Subjects snapshot err:", err));
 
     return () => {
       unsubStudents();
@@ -34,53 +40,60 @@ export default function DashboardHome() {
 
   useEffect(() => {
     if (!hasPermission) return;
-    // Calculate academic performance distributions
-    const unsubTasks = onSnapshot(collection(db, "tasks"), tkSnap => {
-      const tasks = tkSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
-      
-      const unsubScores = onSnapshot(collection(db, "scores"), scSnap => {
-        const scores = scSnap.docs.map(d => d.data());
-        
-        const unsubStudents = onSnapshot(collection(db, "students"), stSnap => {
-          const students = stSnap.docs.map(d => ({ id: d.id }));
-          
-          let exc = 0, sat = 0, prog = 0, crit = 0;
 
-          students.forEach(st => {
-            // Calculate overall percentage for this student
-            let totalObtained = 0;
-            let totalMax = 0;
-            let hasScores = false;
+    const unsubTasks = onSnapshot(collection(db, "tasks"), snap => {
+      setTasksList(snap.docs.map(d => ({ id: d.id, ...d.data() as any })));
+    }, err => console.error("Tasks flat snapshot err:", err));
 
-            const stScores = scores.filter(sc => sc.studentId === st.id);
-            stScores.forEach(sc => {
-               const tk = tasks.find(t => t.id === sc.taskId);
-               if (tk && typeof sc.score === "number" && tk.maxMarks) {
-                 totalObtained += sc.score;
-                 totalMax += Number(tk.maxMarks);
-                 hasScores = true;
-               }
-            });
+    const unsubScores = onSnapshot(collection(db, "scores"), snap => {
+      setScoresList(snap.docs.map(d => d.data() as any));
+    }, err => console.error("Scores flat snapshot err:", err));
 
-            if (hasScores && totalMax > 0) {
-               const pct = (totalObtained / totalMax) * 100;
-               if (pct >= 80) exc++;
-               else if (pct >= 60) sat++;
-               else if (pct >= 40) prog++;
-               else crit++;
-            }
-          });
+    const unsubStudents = onSnapshot(collection(db, "students"), snap => {
+      setStudentsList(snap.docs.map(d => ({ id: d.id })));
+    }, err => console.error("Students flat snapshot err:", err));
 
-          setQuadrants({ excellence: exc, satisfactory: sat, progress: prog, critical: crit });
-        });
-        
-        return () => unsubStudents();
-      });
-      return () => unsubScores();
-    });
-    
-    return () => unsubTasks();
+    return () => {
+      unsubTasks();
+      unsubScores();
+      unsubStudents();
+    };
   }, [hasPermission]);
+
+  useEffect(() => {
+    if (tasksList.length === 0 || studentsList.length === 0) {
+      setQuadrants({ excellence: 0, satisfactory: 0, progress: 0, critical: 0 });
+      return;
+    }
+
+    let exc = 0, sat = 0, prog = 0, crit = 0;
+
+    studentsList.forEach(st => {
+      let totalObtained = 0;
+      let totalMax = 0;
+      let hasScores = false;
+
+      const stScores = scoresList.filter(sc => sc.studentId === st.id);
+      stScores.forEach(sc => {
+         const tk = tasksList.find(t => t.id === sc.taskId);
+         if (tk && typeof sc.score === "number" && tk.maxMarks) {
+           totalObtained += sc.score;
+           totalMax += Number(tk.maxMarks);
+           hasScores = true;
+         }
+      });
+
+      if (hasScores && totalMax > 0) {
+         const pct = (totalObtained / totalMax) * 100;
+         if (pct >= 80) exc++;
+         else if (pct >= 60) sat++;
+         else if (pct >= 40) prog++;
+         else crit++;
+      }
+    });
+
+    setQuadrants({ excellence: exc, satisfactory: sat, progress: prog, critical: crit });
+  }, [tasksList, scoresList, studentsList]);
 
   if (!hasPermission) {
     return (

@@ -213,6 +213,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     await firebaseSignOut(auth);
     setAccessToken(null);
+    localStorage.removeItem("google_access_token");
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("app_user_role_")) {
+        localStorage.removeItem(key);
+        i--; // Adjust index due to mutation
+      }
+    }
   };
 
   return (
