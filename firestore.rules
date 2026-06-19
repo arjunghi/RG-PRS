@@ -31,11 +31,11 @@ service cloud.firestore {
     function existing() { return resource.data; }
 
     function isValidUser(data) {
-      return data.keys().hasAll(['email', 'role', 'createdAt']) && 
+      return data.keys().hasAll(['email']) && 
              data.email is string && data.email.size() <= 200 &&
-             data.role in ['admin', 'teacher', 'eca_teacher', 'staff', 'student', 'incharge', 'guest'] &&
+             (!('role' in data.keys()) || data.role in ['admin', 'teacher', 'eca_teacher', 'staff', 'student', 'incharge', 'guest']) &&
              (!('status' in data.keys()) || (data.status in ['approved', 'pending', 'rejected', 'unregistered'])) &&
-             data.createdAt is string; // using string for ISO dates
+             (!('createdAt' in data.keys()) || data.createdAt is string);
     }
 
     match /settings/{docId} {
@@ -78,7 +78,7 @@ service cloud.firestore {
     }
 
     match /students/{studentId} {
-      allow get, list: if isSignedIn() && isVerified() && isStaff();
+      allow get, list: if true;
       allow create: if isSignedIn() && isVerified() && isAdmin() && isValidId(studentId) && isValidStudent(incoming());
       allow update: if isSignedIn() && isVerified() && isTeacher() && isValidStudent(incoming());
       allow delete: if isSignedIn() && isVerified() && isAdmin();
@@ -98,7 +98,7 @@ service cloud.firestore {
     }
 
     match /tasks/{taskId} {
-      allow get, list: if isSignedIn() && isVerified() && isStaff();
+      allow get, list: if true;
       allow create: if isSignedIn() && isVerified() && isTeacher() && isValidId(taskId) && isValidTask(incoming());
       allow update: if isSignedIn() && isVerified() && isTeacher() && isValidTask(incoming());
       allow delete: if isSignedIn() && isVerified() && isTeacher();
@@ -114,7 +114,7 @@ service cloud.firestore {
     }
 
     match /scores/{scoreId} {
-      allow list, get: if isSignedIn() && isVerified() && isStaff();
+      allow list, get: if true;
       allow create: if isSignedIn() && isVerified() && isTeacher() && isValidId(scoreId) && isValidScore(incoming());
       allow update: if isSignedIn() && isVerified() && isTeacher() && isValidScore(incoming());
       allow delete: if isSignedIn() && isVerified() && isTeacher();

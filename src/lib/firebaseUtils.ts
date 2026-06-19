@@ -38,5 +38,5 @@ export function handleFirestoreError(
   };
   console.error("Firestore Error: ", JSON.stringify(errInfo));
   alert(`Database Operation Failed (${operationType}): ${errInfo.error}\nPlease check your network connection or permissions.`);
-  // throw new Error(JSON.stringify(errInfo)); // Removing throw so it doesn't leave uncaught promise
+  throw new Error(JSON.stringify(errInfo));
 }

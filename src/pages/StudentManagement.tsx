@@ -263,14 +263,21 @@ export default function StudentManagement() {
                   <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Section</label>
                   <select required value={newSection} onChange={e => setNewSection(e.target.value)} className="w-full sm:w-28 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
                      <option value="" disabled>Select</option>
-                     {newGrade && (config.gradeMappings || []).find((g: any) => g.grade === newGrade)?.sections.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                     {(!config.gradeMappings || config.gradeMappings.length === 0) && (
-                       <>
-                         <option value="A">A</option>
-                         <option value="B">B</option>
-                         <option value="C">C</option>
-                       </>
-                     )}
+                     {(() => {
+                        const matchedGrade = (config.gradeMappings || []).find((g: any) => g.grade === newGrade);
+                        const sectionsList = matchedGrade?.sections || [];
+                        if (sectionsList.length > 0) {
+                           return sectionsList.map((s: string) => <option key={s} value={s}>{s}</option>);
+                        } else {
+                           return (
+                              <>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                              </>
+                           );
+                        }
+                     })()}
                   </select>
                 </div>
                 <div>
@@ -310,14 +317,21 @@ export default function StudentManagement() {
                     <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-1">Target Section</label>
                     <select required value={multiSection} onChange={e => setMultiSection(e.target.value)} className="w-40 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
                        <option value="" disabled>Select Section</option>
-                       {multiGrade && (config.gradeMappings || []).find((g: any) => g.grade === multiGrade)?.sections.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                       {(!config.gradeMappings || config.gradeMappings.length === 0) && (
-                         <>
-                           <option value="A">A</option>
-                           <option value="B">B</option>
-                           <option value="C">C</option>
-                         </>
-                       )}
+                       {(() => {
+                          const matchedGrade = (config.gradeMappings || []).find((g: any) => g.grade === multiGrade);
+                          const sectionsList = matchedGrade?.sections || [];
+                          if (sectionsList.length > 0) {
+                             return sectionsList.map((s: string) => <option key={s} value={s}>{s}</option>);
+                          } else {
+                             return (
+                                <>
+                                  <option value="A">A</option>
+                                  <option value="B">B</option>
+                                  <option value="C">C</option>
+                                </>
+                             );
+                          }
+                       })()}
                     </select>
                   </div>
                 </div>
