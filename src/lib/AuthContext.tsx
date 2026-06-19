@@ -148,6 +148,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (emailKey === "arjun@rajarshigurukul.edu.np") {
                    snapshotAppRole = "admin";
                    snapshotStatus = "approved";
+                   
+                   if (finalData.role !== "admin" || finalData.status !== "approved") {
+                      // Force database sync so security rules recognize the role
+                      setDoc(userDocRef, { role: "admin", status: "approved" }, { merge: true }).catch(e => {
+                         console.warn("Failed to synchronize admin role to Firestore:", e);
+                      });
+                   }
                 }
 
                 // Cache verified role and status
