@@ -89,73 +89,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userDocRef = doc(db, "users", firebaseUser.uid);
           const emailKey = email.toLowerCase().trim();
           
-          if (emailKey) {
-             try {
-                const emailDocRef = doc(db, "users", emailKey);
-                const emailSnap = await getDoc(emailDocRef);
-                if (emailSnap.exists()) {
-                   const enrollData = emailSnap.data();
-                   
-                   // Migrate or merge pre-enrolled fields into the secure UID document
-                   await setDoc(userDocRef, {
-                      ...enrollData,
-                      email: emailKey, // ensure normalized email is set
-                      updatedAt: new Date().toISOString()
-                   }, { merge: true });
-                   
-                   // Delete the email-keyed document to prevent duplicate rows in user registries
-                   try {
-                      await deleteDoc(emailDocRef);
-                    } catch(e) {
-                      console.warn("Could not delete processed email-keyed user doc:", e);
-                    }
+          // One-time check of the secure user document first
+          const userSnap = await getDoc(userDocRef);
+          
+          if (!userSnap.exists()) {
+             // User is logging in for the very first time on this secure ID.
+             let initialData: any = {
+                email: emailKey,
+                name: firebaseUser.displayName || email,
+                role: "guest",
+                status: "unregistered",
+                createdAt: new Date().toISOString()
+             };
+             
+             if (emailKey) {
+                try {
+                   const emailDocRef = doc(db, "users", emailKey);
+                   const emailSnap = await getDoc(emailDocRef);
+                   if (emailSnap.exists()) {
+                      const enrollData = emailSnap.data();
+                      // Migrate pre-enrolled fields into the secure UID document
+                      initialData = {
+                         ...initialData,
+                         ...enrollData,
+                         email: emailKey, // Ensure normalized lowercase email
+                         createdAt: enrollData.createdAt || new Date().toISOString(),
+                         updatedAt: new Date().toISOString()
+                      };
+                      
+                      // Delete the temporary email-keyed document
+                      try {
+                         await deleteDoc(emailDocRef);
+                      } catch(e) {
+                         console.warn("Could not delete processed email-keyed user doc:", e);
+                      }
+                   }
+                } catch(errSnap) {
+                    console.warn("Failed pre-enrolled check or migration check:", errSnap);
                 }
-             } catch(errSnap) {
-                 console.warn("Failed pre-enrolled check or migration:", errSnap);
              }
+             
+             if (emailKey === "arjun@rajarshigurukul.edu.np") {
+                initialData.role = "admin";
+                initialData.status = "approved";
+             }
+             
+             await setDoc(userDocRef, initialData);
           }
           
-          // Setup real-time snapshot on the user's secure document
+          // Now set up the real-time observer, secure in the knowledge the document exists
           unsubUserDoc = onSnapshot(userDocRef, (snap) => {
-             let finalData: any = {};
-             let snapshotAppRole = appRole;
-             let snapshotStatus = status;
-             let snapshotDisplayName = firebaseUser.displayName || email;
+             if (snap.exists()) {
+                const finalData = snap.data();
+                let snapshotAppRole = finalData.role || "guest";
+                let snapshotStatus = finalData.status || "unregistered";
+                let snapshotDisplayName = finalData.name || firebaseUser.displayName || email;
 
-             if (!snap.exists()) {
-                // Create initial profile
-                setDoc(userDocRef, {
-                  email: emailKey,
-                  name: snapshotDisplayName,
-                  role: String(appRole),
-                  status: String(status),
-                  createdAt: new Date().toISOString()
-                });
-             } else {
-                finalData = snap.data();
-                snapshotAppRole = finalData.role || snapshotAppRole;
-                snapshotStatus = finalData.status || snapshotStatus;
-                snapshotDisplayName = finalData.name || snapshotDisplayName;
+                if (emailKey === "arjun@rajarshigurukul.edu.np") {
+                   snapshotAppRole = "admin";
+                   snapshotStatus = "approved";
+                }
+
+                // Cache verified role and status
+                localStorage.setItem(cacheKey, snapshotAppRole);
+                localStorage.setItem(`${cacheKey}_status`, snapshotStatus);
+
+                setUser({
+                  ...firebaseUser,
+                  ...finalData,
+                  role: snapshotAppRole, // Expose legacy role
+                  appRole: snapshotAppRole as any,
+                  status: snapshotStatus as any,
+                  displayName: snapshotDisplayName
+                } as AppUser);
              }
-
-             if (emailKey === "arjun@rajarshigurukul.edu.np") {
-                snapshotAppRole = "admin";
-                snapshotStatus = "approved";
-             }
-
-             // Cache verified role and status
-             localStorage.setItem(cacheKey, snapshotAppRole);
-             localStorage.setItem(`${cacheKey}_status`, snapshotStatus);
-
-             setUser({
-               ...firebaseUser,
-               ...finalData,
-               role: snapshotAppRole, // Expose legacy role
-               appRole: snapshotAppRole as any,
-               status: snapshotStatus as any,
-               displayName: snapshotDisplayName
-             } as AppUser);
-             
              setLoading(false);
           }, (err) => {
              console.warn("Error in user doc snapshot listener:", err);
