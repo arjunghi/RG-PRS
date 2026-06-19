@@ -108,9 +108,6 @@ export default function DashboardHome() {
                 PRS
               </div>
               <div className="space-y-1">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full inline-block">
-                  Workspace Guest Mode
-                </span>
                 <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                   Welcome to Rajarshi Gurukul PRS
                 </h1>
