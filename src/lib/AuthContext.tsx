@@ -51,8 +51,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cacheKey = `app_user_role_${firebaseUser.uid}`;
         
         // 1. Determine a base default role and check cache first
-        let appRole: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest" = "guest";
-        let status: "approved" | "pending" | "rejected" | "unregistered" = "unregistered";
+        let appRole: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest" = "teacher";
+        let status: "approved" | "pending" | "rejected" | "unregistered" = "approved";
         if (email.toLowerCase().trim() === "arjun@rajarshigurukul.edu.np") {
           appRole = "admin";
           status = "approved";
@@ -80,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         
         // Only release loading UI if we have cache or it's admin, otherwise wait for DB
-        if (hasCachedRole || email.toLowerCase().trim() === "arjun@rajarshigurukul.edu.np") {
+        if (hasCachedRole || email.toLowerCase().trim() === "arjun@rajarshigurukul.edu.np" || status === "approved") {
            setLoading(false);
         }
 
@@ -97,8 +97,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              let initialData: any = {
                 email: emailKey,
                 name: firebaseUser.displayName || email,
-                role: "guest",
-                status: "unregistered",
+                role: "teacher",
+                status: "approved",
                 createdAt: new Date().toISOString()
              };
              
@@ -141,8 +141,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           unsubUserDoc = onSnapshot(userDocRef, (snap) => {
              if (snap.exists()) {
                 const finalData = snap.data();
-                let snapshotAppRole = finalData.role || "guest";
-                let snapshotStatus = finalData.status || "unregistered";
+                let snapshotAppRole = (finalData.role && finalData.role !== "guest") ? finalData.role : "teacher";
+                let snapshotStatus = (finalData.status && finalData.status !== "unregistered") ? finalData.status : "approved";
                 let snapshotDisplayName = finalData.name || firebaseUser.displayName || email;
 
                 if (emailKey === "arjun@rajarshigurukul.edu.np") {

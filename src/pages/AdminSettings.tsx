@@ -460,53 +460,6 @@ export default function AdminSettings() {
       </div>
 
       <div>
-        <div className="mb-6 bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-            Pre-enroll & Pre-approve New User
-          </h2>
-          <p className="text-xs text-slate-500">
-            Keep full name, email and role for secure institutional access. Pre-enrolled users login seamlessly with Google, completely bypassing manual request screen. Grade and subject access is assigned below.
-          </p>
-          <form onSubmit={addInvitedTeacher} className="flex flex-wrap gap-2 pt-1">
-            <input 
-              type="text" 
-              value={newTeacherName} 
-              onChange={e => setNewTeacherName(e.target.value)} 
-              placeholder="User Full Name..." 
-              className="border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-56" 
-              required 
-            />
-            <input 
-              type="email" 
-              value={newTeacherEmail} 
-              onChange={e => setNewTeacherEmail(e.target.value)} 
-              placeholder="User Email address..." 
-              className="border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-64" 
-              required 
-            />
-            <select 
-              value={newUserRole} 
-              onChange={e => setNewUserRole(e.target.value)} 
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white w-full sm:w-40"
-            >
-               <option value="guest">Guest</option>
-               <option value="student">Student</option>
-               <option value="staff">Staff</option>
-               <option value="teacher">Teacher</option>
-               <option value="incharge">Incharge</option>
-               <option value="eca_teacher">ECA Teacher</option>
-               <option value="admin">Admin</option>
-            </select>
-            <button 
-              type="submit" 
-              className="bg-slate-900 hover:bg-black transition text-white font-semibold text-sm px-5 py-2 rounded-lg cursor-pointer"
-            >
-              Add/Pre-enroll User
-            </button>
-          </form>
-        </div>
-
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-slate-900">Enrolled Users Registry</h2>
         </div>
