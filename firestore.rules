@@ -113,5 +113,9 @@ service cloud.firestore {
       allow update: if isSignedIn() && isVerified() && isTeacher() && isValidScore(incoming());
       allow delete: if isSignedIn() && isVerified() && isTeacher();
     }
+
+    match /staff_chat/{msgId} {
+      allow read, write: if isSignedIn();
+    }
   }
 }
