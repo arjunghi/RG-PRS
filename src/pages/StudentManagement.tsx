@@ -25,8 +25,8 @@ export default function StudentManagement() {
   const [multiSection, setMultiSection] = useState("");
   const [isSubmittingMulti, setIsSubmittingMulti] = useState(false);
 
-  const isAdmin = user?.appRole === "admin";
   const isTeacher = ["admin", "teacher"].includes(user?.appRole || "");
+  const isAdmin = user?.appRole === "admin" || isTeacher;
 
   useEffect(() => {
     const unsubStudents = onSnapshot(collection(db, "students"), (snap) => {
@@ -54,7 +54,7 @@ export default function StudentManagement() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(!isAdmin) return alert("Must be an admin to add students directly.");
+    if(!isTeacher) return alert("Must have permission to add students directly.");
     try {
       await addDoc(collection(db, "students"), {
         name: newName,
@@ -76,7 +76,7 @@ export default function StudentManagement() {
 
   const handleMultilineAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(!isAdmin) return alert("Must be an admin to add students.");
+    if(!isTeacher) return alert("Must have permission to add students.");
     if(!multiGrade || !multiSection) return alert("Please select Grade Level and Section.");
     if(!multilineNames.trim()) return alert("Please paste or type names in the box.");
 
@@ -123,7 +123,7 @@ export default function StudentManagement() {
   };
 
   const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isAdmin) return alert("Must be an admin to upload students.");
+    if (!isTeacher) return alert("Must have permission to upload students.");
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -165,7 +165,7 @@ export default function StudentManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if(!isAdmin) return alert("Requires Admin permission.");
+    if(!isTeacher) return alert("Requires teacher / staff permission.");
     try {
       await deleteDoc(doc(db, "students", id));
       triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
@@ -201,7 +201,7 @@ export default function StudentManagement() {
         <div className="flex items-center space-x-3">
           <h2 className="text-xl font-bold text-slate-900">Student Directory & ECA</h2>
         </div>
-        {isAdmin && (
+        {isTeacher && (
           <div className="flex items-center space-x-3">
              <button onClick={downloadSampleCSV} className="text-slate-600 hover:text-blue-600 text-sm font-semibold transition-colors underline underline-offset-2">Download Sample CSV</button>
              <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-colors text-slate-700 px-4 py-2 text-sm font-semibold rounded-lg shadow-sm">
@@ -212,7 +212,7 @@ export default function StudentManagement() {
         )}
       </div>
 
-      {isAdmin && (
+      {isTeacher && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
           {/* Form Tabs */}
           <div className="flex border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">

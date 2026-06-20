@@ -31,15 +31,7 @@ export default function TaskLedger() {
   const isTeacher = ["admin", "teacher", "eca_teacher"].includes(user?.appRole || "");
   const isAdmin = user?.appRole === "admin";
 
-  const permittedSubjects = isAdmin 
-    ? subjects 
-    : subjects.filter(s => {
-        const isAssigned = (s.assignments || []).some((a: any) => 
-          String(a.teacherEmail || "").toLowerCase().trim() === String(user?.email || "").toLowerCase().trim()
-        );
-        const hasMainGrade = user?.requestedGrade && String(s.gradeLevel || "").toLowerCase().trim() === String(user.requestedGrade).toLowerCase().trim();
-        return isAssigned || hasMainGrade;
-      });
+  const permittedSubjects = subjects;
 
   useEffect(() => {
     if (permittedSubjects.length > 0) {

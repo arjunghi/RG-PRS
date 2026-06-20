@@ -10,6 +10,28 @@ export default function StaffChat() {
   const [newMessage, setNewMessage] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
+  const getFormattedTime = (createdAt: any) => {
+    if (!createdAt) return "Sending...";
+    try {
+      if (typeof createdAt.toMillis === "function") {
+        return new Date(createdAt.toMillis()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      if (typeof createdAt.toDate === "function") {
+        return createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      if (createdAt.seconds) {
+        return new Date(createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      const parsed = new Date(createdAt);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    } catch (err) {
+      console.warn("Time format error:", err);
+    }
+    return "Sending...";
+  };
+
   useEffect(() => {
     const q = query(
       collection(db, "staff_chat"),
@@ -17,7 +39,10 @@ export default function StaffChat() {
       limit(100)
     );
     const unsub = onSnapshot(q, (snap) => {
-       const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse();
+       const msgs = snap.docs.map(d => ({ 
+         id: d.id, 
+         ...d.data({ serverTimestamps: 'estimate' }) 
+       })).reverse();
        setMessages(msgs);
        setTimeout(() => {
           endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -59,7 +84,7 @@ export default function StaffChat() {
       <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
         {messages.map((m, i) => {
           const isMe = m.senderEmail === user?.email;
-          const time = m.createdAt ? new Date(m.createdAt.toMillis()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Sending...";
+          const time = getFormattedTime(m.createdAt);
           return (
             <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                <div className={`flex max-w-[75%] ${isMe ? "flex-row-reverse" : "flex-row"}`}>
