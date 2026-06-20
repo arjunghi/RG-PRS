@@ -3,10 +3,9 @@ import { db } from "../lib/firebaseClient";
 import { collection, onSnapshot, addDoc, doc, setDoc, query, where, updateDoc, deleteDoc } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/firebaseUtils";
 import { useAuth } from "../lib/AuthContext";
-import { triggerLiveSyncInBg } from "../lib/googleSheetsSync";
 
 export default function TaskLedger() {
-  const { user, accessToken } = useAuth();
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
@@ -135,7 +134,6 @@ export default function TaskLedger() {
       });
       setShowTaskForm(false);
       setNewTask({ name: "", maxMarks: 10, taskType: "HW", term: "Spring", date: new Date().toISOString().split("T")[0] });
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) {
       handleFirestoreError(err, OperationType.CREATE, "tasks");
     }
@@ -192,7 +190,6 @@ export default function TaskLedger() {
       
       await Promise.all(promises);
       setPendingScores({});
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
       alert("Scores saved successfully.");
     } catch(err) {
       handleFirestoreError(err, OperationType.WRITE, "scores");

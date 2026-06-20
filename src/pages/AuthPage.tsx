@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { LogIn, Sparkles, Database, FileSpreadsheet, Award, Lock } from "lucide-react";
+import { LogIn, Sparkles, Database, RefreshCw, Award, Lock } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { Navigate } from "react-router-dom";
 
@@ -59,10 +59,10 @@ export default function AuthPage() {
                 <span>Active Portal Version 2.4</span>
               </span>
               <h1 className="text-4xl font-extrabold tracking-tight text-white leading-[1.15]">
-                Evaluate, Track, and Sync Automatically.
+                Evaluate, Track, and Sync Real-time.
               </h1>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Streamlining continuous assessment recordings, ECA performance metrics, and automatic spreadsheet back-ups for advanced scholastic tracking.
+                Streamlining continuous assessment recordings, ECA performance metrics, and high-performance secure live sync for advanced scholastic tracking.
               </p>
             </div>
 
@@ -80,11 +80,11 @@ export default function AuthPage() {
 
               <div className="flex items-start space-x-3.5">
                 <div className="mt-0.5 w-8 h-8 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center text-indigo-400 shrink-0">
-                  <FileSpreadsheet className="w-4 h-4" />
+                  <RefreshCw className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Live Bi-directional Sync</h4>
-                  <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">Automatic background mirroring creates complete backups on school worksheets instantly.</p>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Dynamic Real-time Synced Ledger</h4>
+                  <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">Assessment changes and grades are instantly synced and recorded to the cloud for real-time visibility.</p>
                 </div>
               </div>
 

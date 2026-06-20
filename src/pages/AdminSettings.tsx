@@ -3,11 +3,8 @@ import { db } from "../lib/firebaseClient";
 import { collection, onSnapshot, doc, updateDoc, setDoc, deleteDoc, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/firebaseUtils";
 import { useAuth } from "../lib/AuthContext";
-import { createSpreadsheet, syncAllFirestoreToSheets, saveSheetConnection, triggerLiveSyncInBg, importSheetsConfirmAndSync } from "../lib/googleSheetsSync";
-import { FileSpreadsheet, RefreshCw, Link2, PlusCircle, Check, AlertTriangle, ExternalLink } from "lucide-react";
 
 export default function AdminSettings() {
-  const { accessToken, reconnectGoogle } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [config, setConfig] = useState<any>({ grades: [], sections: [] });
@@ -28,10 +25,6 @@ export default function AdminSettings() {
   const [assignSubject, setAssignSubject] = useState("");
   const [assignGrade, setAssignGrade] = useState("");
   const [assignSection, setAssignSection] = useState("");
-
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [sheetInputId, setSheetInputId] = useState("");
-  const [syncStatus, setSyncStatus] = useState<{ type: "success" | "error" | "info" | null, message: string }>({ type: null, message: "" });
 
   useEffect(() => {
     const unsub1 = onSnapshot(collection(db, "users"), snap => {
@@ -71,7 +64,7 @@ export default function AdminSettings() {
     } catch(err) {
       handleFirestoreError(err, OperationType.UPDATE, "users");
     }
-  }
+  };
 
   const addInvitedTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +104,7 @@ export default function AdminSettings() {
     } catch(err) {
       handleFirestoreError(err, OperationType.CREATE, "users");
     }
-  }
+  };
 
   const handleAddGrade = async () => {
     if(!newGrade.trim()) return;
@@ -120,18 +113,16 @@ export default function AdminSettings() {
       gList.push({ grade: newGrade.trim(), sections: [] });
       await setDoc(doc(db, "settings", "schoolConfig"), { gradeMappings: gList }, { merge: true });
       setNewGrade("");
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) { handleFirestoreError(err, OperationType.UPDATE, "settings"); }
-  }
+  };
 
   const handleRemoveGrade = async (index: number) => {
     try {
       const gList = [...(config.gradeMappings || [])];
       gList.splice(index, 1);
       await setDoc(doc(db, "settings", "schoolConfig"), { gradeMappings: gList }, { merge: true });
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) { handleFirestoreError(err, OperationType.UPDATE, "settings"); }
-  }
+  };
 
   const handleAddSection = async (gradeIndex: number) => {
     const val = newSectionMap[gradeIndex];
@@ -142,18 +133,16 @@ export default function AdminSettings() {
       gList[gradeIndex].sections.push(val.trim());
       await setDoc(doc(db, "settings", "schoolConfig"), { gradeMappings: gList }, { merge: true });
       setNewSectionMap(prev => ({...prev, [gradeIndex]: ""}));
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) { handleFirestoreError(err, OperationType.UPDATE, "settings"); }
-  }
+  };
 
   const handleRemoveSection = async (gradeIndex: number, secIndex: number) => {
     try {
       const gList = [...(config.gradeMappings || [])];
       gList[gradeIndex].sections.splice(secIndex, 1);
       await setDoc(doc(db, "settings", "schoolConfig"), { gradeMappings: gList }, { merge: true });
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) { handleFirestoreError(err, OperationType.UPDATE, "settings"); }
-  }
+  };
 
   const handleAddAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,7 +164,6 @@ export default function AdminSettings() {
              section: assignSection
          });
          await updateDoc(doc(db, "subjects", assignSubject), { assignments });
-         triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
          
          // Clear only the subject to allow rapid re-assignment of the same teacher/grade
          setAssignSubject("");
@@ -192,21 +180,19 @@ export default function AdminSettings() {
        const assignments = subject.assignments || [];
        assignments.splice(idx, 1);
        await updateDoc(doc(db, "subjects", subjectId), { assignments });
-       triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) {
        handleFirestoreError(err, OperationType.UPDATE, "subjects");
     }
-  }
+  };
 
   const handleDeleteSubject = async (subjectId: string) => {
     if(!confirm("Are you sure you want to delete this subject?")) return;
     try {
       await deleteDoc(doc(db, "subjects", subjectId));
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) {
       handleFirestoreError(err, OperationType.DELETE, "subjects");
     }
-  }
+  };
 
   const addSubject = async (e: React.FormEvent, type: "academic" | "eca") => {
     e.preventDefault();
@@ -242,159 +228,10 @@ export default function AdminSettings() {
          setNewEcaGrade("General");
          setEcaCriteria(["", "", "", "", ""]);
       }
-      
-      // Auto-sync addition of subjects
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) {
       handleFirestoreError(err, OperationType.CREATE, "subjects");
     }
-  }
-
-  const handleConnectGoogle = async () => {
-    setSyncStatus({ type: "info", message: "Connecting to your Google Account..." });
-    const token = await reconnectGoogle();
-    if (token) {
-      setSyncStatus({ type: "success", message: "Successfully connected Google account with Drive/Sheets permissions!" });
-    } else {
-      setSyncStatus({ type: "error", message: "Failed to connect Google account with sheets permission." });
-    }
-  }
-
-  const handleCreateNewSheet = async () => {
-    if (!accessToken) {
-      setSyncStatus({ type: "error", message: "Please connect your Google Account first." });
-      return;
-    }
-    setIsSyncing(true);
-    setSyncStatus({ type: "info", message: "Initializing new Google Spreadsheet on your Drive..." });
-    try {
-      const spreadsheet = await createSpreadsheet(accessToken, "RG PRS Student & Grading Records");
-      await saveSheetConnection(spreadsheet.id, spreadsheet.url);
-      setSyncStatus({ type: "info", message: "Spreadsheet initialized! Synced Google worksheets..." });
-      await syncAllFirestoreToSheets(accessToken, spreadsheet.id);
-      setSyncStatus({ type: "success", message: "Active Google Spreadsheet created and fully synced!" });
-    } catch (err: any) {
-      console.error(err);
-      setSyncStatus({ type: "error", message: `Failed to create spreadsheet: ${err.message || err}` });
-    } finally {
-      setIsSyncing(false);
-    }
-  }
-
-  const handleLinkExistingSheet = async () => {
-    if (!sheetInputId.trim()) return;
-    setIsSyncing(true);
-    setSyncStatus({ type: "info", message: "Connecting Google Spreadsheet ID..." });
-    try {
-      let sId = sheetInputId.trim();
-      if (sId.includes("/d/")) {
-        const parts = sId.split("/d/");
-        if (parts[1]) {
-          sId = parts[1].split("/")[0];
-        }
-      }
-      const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${sId}/edit`;
-      setSheetInputId("");
-      
-      // Always save the connection immediately in Firebase Config
-      await saveSheetConnection(sId, spreadsheetUrl);
-
-      if (accessToken) {
-        setSyncStatus({ type: "info", message: "Spreadsheet linked! Seeding/Backing up your Firebase database to the spreadsheet..." });
-        await syncAllFirestoreToSheets(accessToken, sId);
-        setSyncStatus({ 
-          type: "success", 
-          message: "Spreadsheet linked successfully! Your current Firebase database was successfully backed up to the Google Sheet." 
-        });
-      } else {
-        setSyncStatus({ 
-          type: "success", 
-          message: "Spreadsheet linked successfully! Connect your Google Account above or refresh to initiate automated backups." 
-        });
-      }
-    } catch (err: any) {
-      console.error(err);
-      setSyncStatus({ type: "error", message: `Failed to link spreadsheet: ${err.message || err}` });
-    } finally {
-      setIsSyncing(false);
-    }
-  }
-
-  const handlePullFromSheet = async () => {
-    if (!config.googleSpreadsheetId) {
-      setSyncStatus({ type: "error", message: "No connected spreadsheet found." });
-      return;
-    }
-    const token = accessToken || (await reconnectGoogle());
-    if (!token) {
-      setSyncStatus({ type: "error", message: "Missing Google authorization. Please connect your Google Account first." });
-      return;
-    }
-    const confirmed = window.confirm("This will read all worksheets from your Google Spreadsheet and import them, which may merge or overwrite current records. Proceed?");
-    if (!confirmed) return;
-
-    setIsSyncing(true);
-    setSyncStatus({ type: "info", message: "Importing records from active Google Sheet..." });
-    try {
-      const result = await importSheetsConfirmAndSync(token, config.googleSpreadsheetId);
-      setSyncStatus({ 
-        type: "success", 
-        message: `Import completed! Successfully read ${result.studentsCount} students, ${result.subjectsCount} subjects, ${result.tasksCount} tasks, and ${result.scoresCount} scores directly into the database.` 
-      });
-    } catch (err: any) {
-      console.error(err);
-      setSyncStatus({ type: "error", message: `Failed to import spreadsheet: ${err.message || err}` });
-    } finally {
-      setIsSyncing(false);
-    }
-  }
-
-  const handleManualSync = async () => {
-    if (!accessToken) {
-      const token = await reconnectGoogle();
-      if (!token) {
-        setSyncStatus({ type: "error", message: "Missing Google authorization. Please click the 'Authorize Google Session' button to log in first." });
-        return;
-      }
-    }
-    if (!config.googleSpreadsheetId) {
-      setSyncStatus({ type: "error", message: "No spreadsheet is linked. Please link or create a Google Sheet first." });
-      return;
-    }
-    setIsSyncing(true);
-    setSyncStatus({ type: "info", message: "Running complete on-demand spreadsheet synchronization..." });
-    try {
-      const activeToken = accessToken || (await reconnectGoogle());
-      if (activeToken) {
-        await syncAllFirestoreToSheets(activeToken, config.googleSpreadsheetId);
-        await setDoc(doc(db, "settings", "schoolConfig"), {
-          googleSyncLastTime: new Date().toISOString()
-        }, { merge: true });
-        setSyncStatus({ type: "success", message: "All records synchronized with Google Sheets successfully!" });
-      } else {
-        setSyncStatus({ type: "error", message: "Failed to obtain authorized Google Session." });
-      }
-    } catch (err: any) {
-      console.error(err);
-      setSyncStatus({ type: "error", message: `Synchronization failed: ${err.message || err}` });
-    } finally {
-      setIsSyncing(false);
-    }
-  }
-
-  const handleDisconnectSheet = async () => {
-    if (!window.confirm("Disconnect spreadsheet? This will stop automated updates, but your spreadsheet file on Google Drive will remain intact.")) return;
-    try {
-      await setDoc(doc(db, "settings", "schoolConfig"), {
-        googleSpreadsheetId: null,
-        googleSpreadsheetUrl: null,
-        googleSyncLastTime: null
-      }, { merge: true });
-      setSyncStatus({ type: "success", message: "Google Sheet connection deleted." });
-    } catch (err: any) {
-      setSyncStatus({ type: "error", message: `Disconnect failed: ${err.message || err}` });
-    }
-  }
+  };
 
   return (
     <div className="space-y-8">
@@ -512,7 +349,7 @@ export default function AdminSettings() {
                                        const isDup = existing.some((a: any) => a.teacherEmail === newAssignment.teacherEmail && a.gradeLevel === newAssignment.gradeLevel && a.section === newAssignment.section);
                                        if (!isDup) {
                                           await updateDoc(doc(db, "subjects", matchingSubject.id), { assignments: [...existing, newAssignment] });
-                                          triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
+
                                        }
                                     }
                                  }

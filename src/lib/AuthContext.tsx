@@ -13,9 +13,6 @@ interface AuthContextType {
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  accessToken: string | null;
-  setAccessToken: (token: string | null) => void;
-  reconnectGoogle: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -23,9 +20,6 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signIn: async () => {},
   signOut: async () => {},
-  accessToken: null,
-  setAccessToken: () => {},
-  reconnectGoogle: async () => null,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -33,9 +27,6 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [accessToken, setAccessToken] = useState<string | null>(() => {
-     return localStorage.getItem("google_access_token");
-  });
 
   useEffect(() => {
     let unsubUserDoc: (() => void) | null = null;
@@ -160,7 +151,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else {
         setUser(null);
-        setAccessToken(null);
         setLoading(false);
       }
     });
@@ -173,39 +163,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async () => {
     const provider = new GoogleAuthProvider();
-    provider.addScope("https://www.googleapis.com/auth/spreadsheets");
-    provider.addScope("https://www.googleapis.com/auth/drive.file");
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (credential?.accessToken) {
-      localStorage.setItem("google_access_token", credential.accessToken);
-      setAccessToken(credential.accessToken);
-    }
-  };
-
-  const reconnectGoogle = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope("https://www.googleapis.com/auth/spreadsheets");
-      provider.addScope("https://www.googleapis.com/auth/drive.file");
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (credential?.accessToken) {
-        localStorage.setItem("google_access_token", credential.accessToken);
-        setAccessToken(credential.accessToken);
-        return credential.accessToken;
-      }
-      return null;
-    } catch (err) {
-      console.error("Failed to reconnect Google scopes:", err);
-      return null;
-    }
+    await signInWithPopup(auth, provider);
   };
 
   const signOut = async () => {
     await firebaseSignOut(auth);
-    setAccessToken(null);
-    localStorage.removeItem("google_access_token");
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith("app_user_role_")) {
@@ -216,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, accessToken, setAccessToken, reconnectGoogle }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

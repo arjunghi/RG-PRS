@@ -3,10 +3,9 @@ import { db } from "../lib/firebaseClient";
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch } from "firebase/firestore";
 import { handleFirestoreError, OperationType } from "../lib/firebaseUtils";
 import { useAuth } from "../lib/AuthContext";
-import { triggerLiveSyncInBg } from "../lib/googleSheetsSync";
 
 export default function StudentManagement() {
-  const { user, accessToken } = useAuth();
+  const { user } = useAuth();
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -68,7 +67,6 @@ export default function StudentManagement() {
       setNewGrade("");
       setSport1("");
       setSport2("");
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) {
       handleFirestoreError(err, OperationType.CREATE, "students");
     }
@@ -113,7 +111,6 @@ export default function StudentManagement() {
 
       alert(`Success! Imported ${names.length} students into ${multiGrade} - ${multiSection}.`);
       setMultilineNames("");
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch (err) {
       console.error(err);
       handleFirestoreError(err, OperationType.CREATE, "students");
@@ -158,7 +155,6 @@ export default function StudentManagement() {
         }
       }
       alert("Bulk upload completed");
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
       if (e.target) e.target.value = ""; // Reset input
     };
     reader.readAsText(file);
@@ -168,7 +164,6 @@ export default function StudentManagement() {
     if(!isTeacher) return alert("Requires teacher / staff permission.");
     try {
       await deleteDoc(doc(db, "students", id));
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) {
        handleFirestoreError(err, OperationType.DELETE, "students");
     }
@@ -178,7 +173,6 @@ export default function StudentManagement() {
     if(!isTeacher) return alert("Requires Teacher or Admin permission.");
     try {
       await updateDoc(doc(db, "students", studentId), { ecaSports: sports });
-      triggerLiveSyncInBg(accessToken, config.googleSpreadsheetId);
     } catch(err) {
       handleFirestoreError(err, OperationType.UPDATE, "students");
     }
