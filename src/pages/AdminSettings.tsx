@@ -398,66 +398,6 @@ export default function AdminSettings() {
 
   return (
     <div className="space-y-8">
-      {/* Google Sheets Backup Settings */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-          <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-          Google Sheets Auto-Backup
-        </h2>
-        <p className="text-xs text-slate-500 mt-1">Data entered in the software is automatically backed up to your Google Sheet without needing to sync manually. The app stores its primary data completely in Firebase.</p>
-        
-        <div className="mt-4 flex flex-col md:flex-row gap-4 items-center">
-           {!accessToken ? (
-             <button
-                onClick={async () => {
-                  await reconnectGoogle();
-                }}
-                className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs px-4 py-2 rounded-lg transition shadow-sm flex items-center space-x-2 cursor-pointer"
-              >
-                <span>Authorize Google Session</span>
-             </button>
-           ) : (
-             <span className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>Authorized</span>
-             </span>
-           )}
-           
-           <div className="flex-1 w-full flex gap-2">
-             <input
-                type="text"
-                value={sheetInputId}
-                onChange={(e) => setSheetInputId(e.target.value)}
-                placeholder="Paste Spreadsheet URL or ID here..."
-                className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 flex-1"
-             />
-             <button
-                onClick={handleLinkExistingSheet}
-                disabled={isSyncing || !sheetInputId.trim()}
-                className="bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-semibold text-xs px-4 py-1.5 rounded-lg transition"
-             >
-                Set as Backup
-             </button>
-             {config.googleSpreadsheetId && (
-               <button
-                  onClick={handleDisconnectSheet}
-                  className="bg-rose-100 text-rose-700 hover:bg-rose-200 font-semibold text-xs px-3 py-1.5 rounded-lg transition"
-               >
-                  Unlink
-               </button>
-             )}
-           </div>
-        </div>
-        
-        {config.googleSpreadsheetId && (
-          <div className="mt-3 text-[11px] font-medium text-slate-500 flex items-center gap-2">
-            <span>Currently backing up to:</span>
-            <a href={config.googleSpreadsheetUrl} target="_blank" rel="noreferrer" className="text-blue-500 underline">
-               {config.googleSpreadsheetId}
-            </a>
-          </div>
-        )}
-      </div>
 
       <div>
         <div className="flex justify-between items-center mb-4">
