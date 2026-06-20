@@ -23,7 +23,10 @@ export default function StudentPortal() {
     });
     const unsubScores = onSnapshot(collection(db, "scores"), snap => {
        const scoreMap: any = {};
-       snap.docs.forEach(d => { scoreMap[d.id] = d.data(); });
+       snap.docs.forEach(d => {
+         const data = d.data();
+         scoreMap[`${data.studentId}_${data.taskId}`] = { id: d.id, ...data };
+       });
        setScores(scoreMap);
     });
     return () => { unsubStudents(); unsubTasks(); unsubScores(); };

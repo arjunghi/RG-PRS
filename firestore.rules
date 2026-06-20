@@ -41,7 +41,7 @@ service cloud.firestore {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isAbsoluteAdmin() || request.auth.token.email.lower() == userId);
       allow list: if isSignedIn() && isAdmin();
       allow create: if isSignedIn() && isVerified() && isValidUser(incoming()) && ( request.auth.uid == userId || isAdmin() );
-      allow update: if isSignedIn() && isVerified() && (isAdmin() || ((request.auth.uid == userId || request.auth.token.email.lower() == userId) && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'requestedGrade', 'requestedSubject', 'status', 'requestedAt', 'name', 'email', 'updatedAt', 'createdAt']))) && isValidUser(incoming());
+      allow update: if isSignedIn() && isVerified() && (isAdmin() || ((request.auth.uid == userId || request.auth.token.email.lower() == userId) && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'requestedGrade', 'requestedSubject', 'status', 'requestedAt', 'name', 'email', 'updatedAt', 'createdAt', 'lastActive', 'activeNow']))) && isValidUser(incoming());
       allow delete: if isSignedIn() && (isAdmin() || request.auth.token.email.lower() == userId);
     }
 
