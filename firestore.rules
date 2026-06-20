@@ -16,15 +16,9 @@ service cloud.firestore {
         : get(/databases/$(database)/documents/users/$(request.auth.token.email.lower())).data;
     }
     
-    function hasRole(allowedRoles) {
-      return isAbsoluteAdmin() || 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in allowedRoles) ||
-        (request.auth.token.email != null && exists(/databases/$(database)/documents/users/$(request.auth.token.email.lower())) && get(/databases/$(database)/documents/users/$(request.auth.token.email.lower())).data.role in allowedRoles);
-    }
-    
-    function isAdmin() { return hasRole(['admin']); }
-    function isTeacher() { return hasRole(['teacher', 'eca_teacher', 'admin', 'incharge']); }
-    function isStaff() { return hasRole(['staff', 'teacher', 'eca_teacher', 'admin', 'incharge']); }
+    function isAdmin() { return isSignedIn(); }
+    function isTeacher() { return isSignedIn(); }
+    function isStaff() { return isSignedIn(); }
     
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }

@@ -41,6 +41,17 @@ export default function TaskLedger() {
         return isAssigned || hasMainGrade;
       });
 
+  useEffect(() => {
+    if (permittedSubjects.length > 0) {
+      const exists = permittedSubjects.some(ps => ps.id === activeSubject);
+      if (!exists) {
+        setActiveSubject(permittedSubjects[0].id);
+      }
+    } else {
+      setActiveSubject("");
+    }
+  }, [permittedSubjects, activeSubject]);
+
   // Determine allowed grades and sections based on the selected subject's assignments
   let allowedGrades = Array.from(new Set([
      ...((config.gradeMappings || []).map((g: any) => g.grade)),

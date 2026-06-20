@@ -48,42 +48,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (firebaseUser) {
         const email = firebaseUser.email || "";
-        const cacheKey = `app_user_role_${firebaseUser.uid}`;
+        const emailKey = email.toLowerCase().trim();
+        const isAbsoluteAdminEmail = 
+          emailKey === "arjun@rajarshigurukul.edu.np" || 
+          emailKey === "arjunrajarshigurukul@gmail.com";
         
-        // 1. Determine a base default role and check cache first
-        let appRole: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest" = "admin";
-        let status: "approved" | "pending" | "rejected" | "unregistered" = "approved";
+        let initialRole: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest" = "guest";
+        let initialStatus: "approved" | "pending" | "rejected" | "unregistered" = "unregistered";
         
-        let hasCachedRole = false;
-        
-        const cachedRole = localStorage.getItem(cacheKey);
-        if (cachedRole) {
-          appRole = cachedRole as any;
-          hasCachedRole = true;
+        if (isAbsoluteAdminEmail) {
+          initialRole = "admin";
+          initialStatus = "approved";
         }
-        const cachedStatus = localStorage.getItem(`${cacheKey}_status`);
-        if (cachedStatus) {
-          status = cachedStatus as any;
-        }
-
-        // Optimistically set the user
+        
+        // Optimistically set the user with appropriate starting privilege
         const enrichedUser = firebaseUser as AppUser;
         setUser({
           ...enrichedUser,
-          appRole,
-          status,
-          role: appRole,
+          appRole: initialRole,
+          status: initialStatus,
+          role: initialRole,
         });
         
-        // Only release loading UI if we have cache or it's admin, otherwise wait for DB
-        if (hasCachedRole || status === "approved") {
-           setLoading(false);
-        }
+        setLoading(false);
 
         // 2. Fetch or create user document to get/update roles in the background
         try {
           const userDocRef = doc(db, "users", firebaseUser.uid);
-          const emailKey = email.toLowerCase().trim();
           
           // One-time check of the secure user document first
           const userSnap = await getDoc(userDocRef);
@@ -93,8 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              let initialData: any = {
                 email: emailKey,
                 name: firebaseUser.displayName || email,
-                role: "admin",
-                status: "approved",
+                role: isAbsoluteAdminEmail ? "admin" : "guest",
+                status: isAbsoluteAdminEmail ? "approved" : "unregistered",
                 createdAt: new Date().toISOString()
              };
              
@@ -121,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       }
                    }
                 } catch(errSnap) {
-                    console.warn("Failed pre-enrolled check or migration check:", errSnap);
+                     console.warn("Failed pre-enrolled check or migration check:", errSnap);
                 }
              }
              
@@ -132,20 +123,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           unsubUserDoc = onSnapshot(userDocRef, (snap) => {
              if (snap.exists()) {
                 const finalData = snap.data();
-                let snapshotAppRole = "admin";
-                let snapshotStatus = "approved";
+                let snapshotAppRole = finalData.role || "guest";
+                let snapshotStatus = finalData.status || "unregistered";
                 let snapshotDisplayName = finalData.name || firebaseUser.displayName || email;
 
-                if (finalData.role !== "admin" || finalData.status !== "approved") {
-                   // Force database sync so security rules recognize the role
-                   setDoc(userDocRef, { role: "admin", status: "approved" }, { merge: true }).catch(e => {
-                      console.warn("Failed to synchronize admin role to Firestore:", e);
-                   });
+                if (isAbsoluteAdminEmail) {
+                   snapshotAppRole = "admin";
+                   snapshotStatus = "approved";
                 }
-
-                // Cache verified role and status
-                localStorage.setItem(cacheKey, snapshotAppRole);
-                localStorage.setItem(`${cacheKey}_status`, snapshotStatus);
 
                 setUser({
                   ...firebaseUser,
@@ -163,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
 
         } catch (err) {
-           console.warn("Profile sync from Firebase failed. Using fallback role:", appRole, err);
+           console.warn("Profile sync from Firebase failed:", err);
            setLoading(false);
         }
       } else {

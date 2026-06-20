@@ -52,6 +52,17 @@ export default function ReportsPage() {
         return isAssigned || hasMainGrade;
       });
 
+  useEffect(() => {
+    if (permittedSubjects.length > 0) {
+      const exists = permittedSubjects.some(ps => ps.id === activeSubject);
+      if (!exists) {
+        setActiveSubject(permittedSubjects[0].id);
+      }
+    } else {
+      setActiveSubject("");
+    }
+  }, [permittedSubjects, activeSubject]);
+
   const partTotal = (Number(marksConfig.attWeight) || 0) + (Number(marksConfig.discipline) || 0);
   const pracTotal = (Number(marksConfig.practical) || 0) + (Number(marksConfig.project) || 0) + (Number(marksConfig.hwWeight) || 0) + (Number(marksConfig.cwWeight) || 0);
   const examTotal = (Number(marksConfig.unitTest) || 0) + (Number(marksConfig.parentalEv) || 0);
