@@ -63,26 +63,31 @@ export default function DashboardLayout() {
     return unsub;
   }, [user]);
 
-  const hasPermission = 
-    user?.appRole === "admin" || 
-    (user?.status === "approved" && ["teacher", "eca_teacher", "incharge", "staff"].includes(user?.appRole || ""));
+  const hasPermission = user?.appRole === "admin" || (user?.status === "approved" && ["teacher", "eca_teacher", "incharge", "staff"].includes(user?.appRole || ""));
+
+  const isPathAllowed = (path: string) => {
+    if (user?.appRole === "admin") return true;
+    const allowed = ["/", "/students", "/ledger", "/chat"];
+    return allowed.includes(path);
+  };
 
   useEffect(() => {
-    if (!hasPermission && location.pathname !== "/") {
-      // Safely redirect unpermitted users accessing sub-modules back to Overview
+    if (user && !isPathAllowed(location.pathname)) {
       window.location.replace("/");
     }
-  }, [hasPermission, location.pathname]);
+  }, [user, location.pathname]);
 
-  const navItems = hasPermission ? [
+  const navItems = user?.appRole === "admin" ? [
     { name: "Overview", path: "/", icon: LayoutDashboard },
     { name: "Students", path: "/students", icon: Users },
     { name: "Task Ledger", path: "/ledger", icon: BookOpenCheck },
     { name: "CDC Reports", path: "/reports", icon: FileBarChart },
     { name: "ECA Reports", path: "/eca-reports", icon: FileBarChart },
-    ...(user?.appRole === "admin" ? [{ name: "Settings", path: "/settings", icon: Settings }] : []),
+    { name: "Settings", path: "/settings", icon: Settings },
   ] : [
     { name: "Overview", path: "/", icon: LayoutDashboard },
+    { name: "Students", path: "/students", icon: Users },
+    { name: "Task Ledger", path: "/ledger", icon: BookOpenCheck },
   ];
 
   return (

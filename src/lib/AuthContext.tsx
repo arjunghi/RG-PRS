@@ -53,8 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           emailKey === "arjun@rajarshigurukul.edu.np" || 
           emailKey === "arjunrajarshigurukul@gmail.com";
         
-        let initialRole: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest" = "guest";
-        let initialStatus: "approved" | "pending" | "rejected" | "unregistered" = "unregistered";
+        let initialRole: "admin" | "incharge" | "teacher" | "staff" | "student" | "guest" = "teacher";
+        let initialStatus: "approved" | "pending" | "rejected" | "unregistered" = "approved";
         
         if (isAbsoluteAdminEmail) {
           initialRole = "admin";
@@ -84,8 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              let initialData: any = {
                 email: emailKey,
                 name: firebaseUser.displayName || email,
-                role: isAbsoluteAdminEmail ? "admin" : "guest",
-                status: isAbsoluteAdminEmail ? "approved" : "unregistered",
+                role: isAbsoluteAdminEmail ? "admin" : "teacher",
+                status: "approved",
                 createdAt: new Date().toISOString()
              };
              
@@ -123,9 +123,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           unsubUserDoc = onSnapshot(userDocRef, (snap) => {
              if (snap.exists()) {
                 const finalData = snap.data();
-                let snapshotAppRole = finalData.role || "guest";
-                let snapshotStatus = finalData.status || "unregistered";
+                let snapshotAppRole = finalData.role || "teacher";
+                let snapshotStatus = finalData.status || "approved";
                 let snapshotDisplayName = finalData.name || firebaseUser.displayName || email;
+
+                if (snapshotAppRole === "guest" || snapshotAppRole === "unregistered") {
+                   snapshotAppRole = "teacher";
+                }
+                if (snapshotStatus === "unregistered") {
+                   snapshotStatus = "approved";
+                }
 
                 if (isAbsoluteAdminEmail) {
                    snapshotAppRole = "admin";
