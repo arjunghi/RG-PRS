@@ -17,6 +17,7 @@ export default function AdminSettings() {
   
   const [newTeacherName, setNewTeacherName] = useState("");
   const [newTeacherEmail, setNewTeacherEmail] = useState("");
+  const [newTeacherPassword, setNewTeacherPassword] = useState("RG123456");
   const [newUserRole, setNewUserRole] = useState("teacher");
   const [newGrade, setNewGrade] = useState("");
   const [newSectionMap, setNewSectionMap] = useState<Record<number, string>>({});
@@ -66,11 +67,30 @@ export default function AdminSettings() {
     }
   };
 
+  const changePassword = async (email: string, newPassword: string) => {
+    try {
+      const q = query(collection(db, "users"), where("email", "==", email));
+      const snaps = await getDocs(q);
+      if (!snaps.empty) {
+         const batch = writeBatch(db);
+         snaps.docs.forEach((d) => {
+            batch.update(d.ref, { password: newPassword });
+         });
+         await batch.commit();
+      } else {
+         await setDoc(doc(db, "users", email.toLowerCase().trim()), { password: newPassword }, { merge: true });
+      }
+    } catch(err) {
+      handleFirestoreError(err, OperationType.UPDATE, "users");
+    }
+  };
+
   const addInvitedTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if(!newTeacherEmail || !newTeacherName.trim()) return;
     try {
       const email = newTeacherEmail.toLowerCase().trim();
+      const password = newTeacherPassword.trim() || "RG123456";
       
       // Check if user already logged in and created a doc
       const q = query(collection(db, "users"), where("email", "==", email));
@@ -80,6 +100,7 @@ export default function AdminSettings() {
         name: newTeacherName.trim(),
         role: newUserRole,
         status: "approved",
+        password: password,
       };
 
       if (!snaps.empty) {
@@ -90,7 +111,7 @@ export default function AdminSettings() {
          });
          await batch.commit();
       } else {
-         // Create Pre-enrolled Profile
+         // Create Pre-enrolled Profile using master email id
          await setDoc(doc(db, "users", email), {
            ...newRoleData,
            email: email,
@@ -100,6 +121,7 @@ export default function AdminSettings() {
       
       setNewTeacherName("");
       setNewTeacherEmail("");
+      setNewTeacherPassword("RG123456");
       setNewUserRole("teacher");
     } catch(err) {
       handleFirestoreError(err, OperationType.CREATE, "users");
@@ -245,7 +267,7 @@ export default function AdminSettings() {
           Pre-enroll administrators, incharges, teachers, or staff by adding their email and role. When they log in for the first time on the portal login page, entering any password (minimum 6 characters) will automatically create and register their password credential.
         </p>
 
-        <form onSubmit={addInvitedTeacher} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <form onSubmit={addInvitedTeacher} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
           <div className="space-y-1">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Full Name</label>
             <input 
@@ -271,6 +293,18 @@ export default function AdminSettings() {
           </div>
 
           <div className="space-y-1">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Preset Password</label>
+            <input 
+              type="text" 
+              required
+              value={newTeacherPassword} 
+              onChange={e => setNewTeacherPassword(e.target.value)} 
+              placeholder="RG123456" 
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium text-slate-800" 
+            />
+          </div>
+
+          <div className="space-y-1">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">System Role</label>
             <select 
               value={newUserRole} 
@@ -288,7 +322,7 @@ export default function AdminSettings() {
 
           <button 
             type="submit" 
-            className="bg-blue-600 hover:bg-blue-700 transition text-white font-semibold text-sm px-4 py-2 rounded-lg cursor-pointer h-[38px] flex items-center justify-center gap-1"
+            className="bg-blue-600 hover:bg-blue-700 transition text-white font-semibold text-sm px-4 py-2 rounded-lg cursor-pointer h-[38px] flex items-center justify-center gap-1 w-full"
           >
             Add New User
           </button>
@@ -305,6 +339,7 @@ export default function AdminSettings() {
                  <tr>
                    <th className="px-4 py-3">Email</th>
                    <th className="px-4 py-3">Full Name</th>
+                   <th className="px-4 py-3">Password Credentials</th>
                    <th className="px-4 py-3">Role</th>
                    <th className="px-4 py-3">Assigned Grade</th>
                    <th className="px-4 py-3">Grade &amp; Subject Access</th>
@@ -316,6 +351,21 @@ export default function AdminSettings() {
                    <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-2.5 font-medium">{u.email}</td>
                       <td className="px-4 py-2.5">{u.name}</td>
+                       <td className="px-4 py-2.5">
+                         <input
+                           type="text"
+                           defaultValue={u.password || ""}
+                           onBlur={(e) => {
+                             const newVal = e.target.value.trim();
+                             if (newVal && newVal !== (u.password || "")) {
+                                changePassword(u.email, newVal);
+                             }
+                           }}
+                           placeholder="RG123456"
+                           className="border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500 bg-white font-mono w-28 text-slate-800"
+                           title="Click to edit, close / blur to save"
+                         />
+                       </td>
                       <td className="px-4 py-2.5">
                         <select 
                           value={u.role} 
