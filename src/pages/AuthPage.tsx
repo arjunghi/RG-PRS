@@ -1,11 +1,15 @@
 import React, { useState } from "react";
-import { LogIn, Sparkles, Database, RefreshCw, Award, Lock } from "lucide-react";
+import { LogIn, Sparkles, Database, RefreshCw, Award, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { Navigate } from "react-router-dom";
 
 export default function AuthPage() {
   const { user, signIn, loading } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   
   if (loading) {
     return (
@@ -16,12 +20,28 @@ export default function AuthPage() {
   }
   if (user) return <Navigate to="/" replace />;
 
-  const handleSignIn = async () => {
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+       setErrorMsg("Please fill in both email and password.");
+       return;
+    }
+    setErrorMsg("");
     setIsSigningIn(true);
     try {
-      await signIn();
-    } catch(err) {
+      await signIn(email, password);
+    } catch(err: any) {
       console.error("Sign-in failed", err);
+      // Simplify error messages for typical auth-related errors
+      if (err.code === "auth/wrong-password") {
+         setErrorMsg("Incorrect password. Please try again.");
+      } else if (err.code === "auth/invalid-email") {
+         setErrorMsg("Please enter a valid school email address.");
+      } else if (err.code === "auth/user-not-found" || err.code === "auth/invalid-credential") {
+         setErrorMsg("Pre-enrollment required. Ensure your administrator has registered your email first, or ensure your typed credentials are correct.");
+      } else {
+         setErrorMsg(err.message || "An authentication error occurred. Please try again.");
+      }
     } finally {
       setIsSigningIn(false);
     }
@@ -33,8 +53,7 @@ export default function AuthPage() {
       {/* Visual background atmospheric elements */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px]" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px]" />
-
-      {/* Grid structure: Left Brand column (hidden on mobile), Right Auth Column */}
+      
       <div className="w-full grid lg:grid-cols-12 min-h-screen relative z-10">
         
         {/* Left Column - Presentation Panel */}
@@ -46,8 +65,8 @@ export default function AuthPage() {
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-sm font-black tracking-widest text-white uppercase">Rajarshi Gurukul</p>
-              <p className="text-[10px] font-bold text-slate-400 tracking-wider">SECURE GRADEBOOK SYSTEM</p>
+              <p className="text-sm font-black tracking-widest text-white uppercase font-sans">Rajarshi Gurukul</p>
+              <p className="text-[10px] font-bold text-slate-400 tracking-wider font-mono">SECURE GRADEBOOK SYSTEM</p>
             </div>
           </div>
 
@@ -56,9 +75,9 @@ export default function AuthPage() {
             <div className="space-y-4">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-blue-400 bg-blue-950/50 border border-blue-900/50 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                <span>Active Portal Version 2.4</span>
+                <span>Active Portal Version 2.5</span>
               </span>
-              <h1 className="text-4xl font-extrabold tracking-tight text-white leading-[1.15]">
+              <h1 className="text-4xl font-extrabold tracking-tight text-white leading-[1.15] font-sans">
                 Evaluate, Track, and Sync Real-time.
               </h1>
               <p className="text-slate-400 text-sm leading-relaxed">
@@ -73,7 +92,7 @@ export default function AuthPage() {
                   <Database className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Cloud Data Source & Ledger</h4>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-sans">Cloud Data Source & Ledger</h4>
                   <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">Secure Firestore engines compile academic records dynamically without friction.</p>
                 </div>
               </div>
@@ -83,7 +102,7 @@ export default function AuthPage() {
                   <RefreshCw className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Dynamic Real-time Synced Ledger</h4>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-sans">Dynamic Real-time Synced Ledger</h4>
                   <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">Assessment changes and grades are instantly synced and recorded to the cloud for real-time visibility.</p>
                 </div>
               </div>
@@ -93,7 +112,7 @@ export default function AuthPage() {
                   <Award className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">CDC & ECA Integration</h4>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider font-sans">CDC & ECA Integration</h4>
                   <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">Instant evaluation maps directly into national educational parameters and criteria.</p>
                 </div>
               </div>
@@ -101,66 +120,108 @@ export default function AuthPage() {
           </div>
 
           {/* Footer branding details */}
-          <div className="text-slate-500 text-[11px] font-medium">
+          <div className="text-slate-500 text-[11px] font-medium font-mono">
              © 2026 Rajarshi Gurukul. Authorized scholastic team application.
           </div>
         </div>
 
         {/* Right Column - Beautiful Login Panel */}
         <div className="col-span-12 lg:col-span-5 flex items-center justify-center p-6 sm:p-12 relative bg-slate-950">
-          <div className="w-full max-w-sm space-y-8 bg-slate-900/50 border border-slate-850/60 backdrop-blur-md rounded-2xl p-8 sm:p-10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+          <div className="w-full max-w-sm space-y-6 bg-slate-900/50 border border-slate-850/60 backdrop-blur-md rounded-2xl p-8 sm:p-10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
             
             {/* Circular glowing school icon header */}
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-tr from-slate-900 to-slate-850 border border-slate-800 text-white flex items-center justify-center rounded-2xl shadow-xl shadow-black/80 ring-2 ring-blue-500/10">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>
+            <div className="text-center space-y-3">
+              <div className="mx-auto w-14 h-14 bg-gradient-to-tr from-slate-900 to-slate-850 border border-slate-800 text-white flex items-center justify-center rounded-2xl shadow-xl shadow-black/80 ring-2 ring-blue-500/10">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>
               </div>
               <div>
-                <h2 className="text-2xl font-extrabold tracking-tight text-white">RG PRS Login</h2>
-                <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mt-1.5 text-blue-500">Progress Report System</p>
+                <h2 className="text-2xl font-extrabold tracking-tight text-white font-sans">RG PRS Login</h2>
+                <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mt-1 text-blue-500 font-mono">Progress Report System</p>
               </div>
             </div>
 
-            {/* Informational warning */}
-            <p className="text-center text-slate-400 text-xs sm:text-xs leading-relaxed max-w-xs mx-auto">
-              Please sign in using your pre-enrolled institutional email account. Access is restricted to pre-approved credentials.
-            </p>
+            {/* Error Message */}
+            {errorMsg && (
+              <div className="p-3.5 bg-red-950/50 border border-red-900/50 rounded-xl text-xs text-red-400 leading-relaxed font-semibold">
+                {errorMsg}
+              </div>
+            )}
 
-            {/* Login control */}
-            <div className="space-y-4">
+            {/* Credential login form */}
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-sans">School Email Address</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@rajarshigurukul.edu.np"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-sans"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-sans">Security Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Minimum 6 characters"
+                    className="w-full pl-10 pr-10 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-sans"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 focus:outline-none cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-[11px] leading-relaxed text-slate-400 bg-slate-950/40 p-3 rounded-xl border border-slate-900 font-medium">
+                <span className="text-amber-400 font-bold">First login?</span> If your email is pre-enrolled by the Admin, entering any password (minimum 6 characters) will automatically create and register your secure password credential.
+              </div>
+
               <button
-                onClick={handleSignIn}
+                type="submit"
                 disabled={isSigningIn}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white font-bold text-sm px-6 py-3.5 rounded-xl flex items-center justify-center space-x-2.5 transition-all shadow-[0_4px_20px_rgba(37,99,235,0.25)] hover:shadow-[0_4px_25px_rgba(37,99,235,0.35)] outline-none cursor-pointer hover:translate-y-[-1px] active:translate-y-[0] duration-200"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white font-bold text-sm px-6 py-3.5 rounded-xl flex items-center justify-center space-x-2.5 transition-all shadow-[0_4px_20px_rgba(37,99,235,0.25)] hover:shadow-[0_4px_25px_rgba(37,99,235,0.35)] outline-none cursor-pointer hover:translate-y-[-1px] active:translate-y-[0] duration-200 font-sans"
               >
                 {isSigningIn ? (
-                  <span className="tracking-widest uppercase text-xs animate-pulse font-bold">Connecting...</span>
+                  <span className="tracking-widest uppercase text-xs animate-pulse font-bold">Verifying Gateway...</span>
                 ) : (
                   <>
                     <LogIn className="w-4 h-4 shrink-0" />
-                    <span>Sign In with school account</span>
+                    <span>Access Portal Securely</span>
                   </>
                 )}
               </button>
-
-              <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 pt-2 selection:bg-transparent">
-                <Lock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <span>Authorized school authentication</span>
-              </div>
-            </div>
+            </form>
 
             {/* Helper links */}
-            <div className="border-t border-slate-900/80 pt-6 text-center space-y-3 text-[11px] font-medium text-slate-500">
+            <div className="border-t border-slate-900/80 pt-5 text-center space-y-2.5 text-[11px] font-medium text-slate-500 font-mono">
                <div>
-                 <p>Students & Parents</p>
-                 <a href="/student-portal" className="text-blue-500 hover:text-blue-400 font-bold underline transition-colors cursor-pointer text-sm">
+                 <p className="font-sans">Students & Parents</p>
+                 <a href="/student-portal" className="text-blue-500 hover:text-blue-400 font-bold underline transition-colors cursor-pointer text-xs font-sans">
                    Open Student Portal
                  </a>
                </div>
-               <div className="pt-2">
-                 <p>Unenrolled or need subject credentials?</p>
-                 <p className="text-blue-500 hover:underline cursor-pointer">
-                   Contact arjun@rajarshigurukul.edu.np
+               <div className="pt-1">
+                 <p className="font-sans">Unenrolled or need subject credentials?</p>
+                 <p className="text-blue-500 font-bold font-sans">
+                   Contact Admin (arjun@rajarshigurukul.edu.np)
                  </p>
                </div>
             </div>

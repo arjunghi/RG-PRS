@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut } from "firebase/auth";
+import { User, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut } from "firebase/auth";
 import { auth, db } from "./firebaseClient";
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from "firebase/firestore";
 
@@ -11,7 +11,7 @@ interface AppUser extends User {
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
-  signIn: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -52,7 +52,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           initialStatus = "approved";
         }
         
-        // Optimistically set the user with appropriate starting privilege
         const enrichedUser = firebaseUser as AppUser;
         setUser({
           ...enrichedUser,
@@ -63,18 +62,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setLoading(false);
 
-        // 2. Fetch or create user document to get/update roles in the background
         try {
           const userDocRef = doc(db, "users", firebaseUser.uid);
-          
-          // One-time check of the secure user document first
           const userSnap = await getDoc(userDocRef);
           
           if (!userSnap.exists()) {
-             // User is logging in for the very first time on this secure ID.
              let initialData: any = {
                 email: emailKey,
-                name: firebaseUser.displayName || email,
+                name: firebaseUser.displayName || email.split("@")[0],
                 role: isAbsoluteAdminEmail ? "admin" : "teacher",
                 status: "approved",
                 createdAt: new Date().toISOString()
@@ -82,20 +77,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              
              if (emailKey) {
                 try {
+                   // Clean up temporary email-keyed pre-enrollment if it exists
                    const emailDocRef = doc(db, "users", emailKey);
                    const emailSnap = await getDoc(emailDocRef);
                    if (emailSnap.exists()) {
                       const enrollData = emailSnap.data();
-                      // Migrate pre-enrolled fields into the secure UID document
                       initialData = {
                          ...initialData,
                          ...enrollData,
-                         email: emailKey, // Ensure normalized lowercase email
+                         email: emailKey,
                          createdAt: enrollData.createdAt || new Date().toISOString(),
                          updatedAt: new Date().toISOString()
                       };
                       
-                      // Delete the temporary email-keyed document
                       try {
                          await deleteDoc(emailDocRef);
                       } catch(e) {
@@ -110,13 +104,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              await setDoc(userDocRef, initialData);
           }
           
-          // Now set up the real-time observer, secure in the knowledge the document exists
           unsubUserDoc = onSnapshot(userDocRef, (snap) => {
              if (snap.exists()) {
                 const finalData = snap.data();
                 let snapshotAppRole = finalData.role || "teacher";
                 let snapshotStatus = finalData.status || "approved";
-                let snapshotDisplayName = finalData.name || firebaseUser.displayName || email;
+                let snapshotDisplayName = finalData.name || firebaseUser.displayName || email.split("@")[0];
 
                 if (snapshotAppRole === "guest" || snapshotAppRole === "unregistered") {
                    snapshotAppRole = "teacher";
@@ -133,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setUser({
                   ...firebaseUser,
                   ...finalData,
-                  role: snapshotAppRole, // Expose legacy role
+                  role: snapshotAppRole,
                   appRole: snapshotAppRole as any,
                   status: snapshotStatus as any,
                   displayName: snapshotDisplayName
@@ -161,9 +154,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const signIn = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+  const signIn = async (email: string, password: string) => {
+    const emailKey = email.toLowerCase().trim();
+    if (!emailKey || !password) {
+       throw new Error("Email and password are required.");
+    }
+    
+    try {
+      await signInWithEmailAndPassword(auth, emailKey, password);
+    } catch (err: any) {
+      if (err.code === "auth/user-not-found" || err.code === "auth/invalid-credential" || err.code === "auth/cannot-find-user" || err.code === "auth/invalid-email" || err.code === "auth/wrong-password") {
+        // Find if this email was pre-enrolled/invited by Admin
+        const userDocRef = doc(db, "users", emailKey);
+        const userSnap = await getDoc(userDocRef);
+        
+        const isAbsoluteAdminEmail = 
+          emailKey === "arjun@rajarshigurukul.edu.np" || 
+          emailKey === "arjunrajarshigurukul@gmail.com";
+          
+        if (userSnap.exists() || isAbsoluteAdminEmail) {
+          // If the profile exists or if they are the designated system admin, create the Firebase Auth account!
+          // We automatic-create on first login with the chosen password.
+          try {
+            await createUserWithEmailAndPassword(auth, emailKey, password);
+            return;
+          } catch (createErr: any) {
+            throw new Error(`Connection failed. If you already logged in before, please double check your password. Original error: ${createErr.message}`);
+          }
+        }
+      }
+      throw err;
+    }
   };
 
   const signOut = async () => {
@@ -172,7 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const key = localStorage.key(i);
       if (key && key.startsWith("app_user_role_")) {
         localStorage.removeItem(key);
-        i--; // Adjust index due to mutation
+        i--;
       }
     }
   };

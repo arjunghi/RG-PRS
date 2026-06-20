@@ -236,6 +236,65 @@ export default function AdminSettings() {
   return (
     <div className="space-y-8">
 
+      {/* Add / Pre-enroll User Panel */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900 mb-2 flex items-center gap-2">
+          <span>👥 Register / Pre-enroll User</span>
+        </h2>
+        <p className="text-slate-500 text-xs mb-4">
+          Pre-enroll administrators, incharges, teachers, or staff by adding their email and role. When they log in for the first time on the portal login page, entering any password (minimum 6 characters) will automatically create and register their password credential.
+        </p>
+
+        <form onSubmit={addInvitedTeacher} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+          <div className="space-y-1">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Full Name</label>
+            <input 
+              type="text" 
+              required
+              value={newTeacherName} 
+              onChange={e => setNewTeacherName(e.target.value)} 
+              placeholder="e.g. John Doe" 
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium text-slate-800" 
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Email Address</label>
+            <input 
+              type="email" 
+              required
+              value={newTeacherEmail} 
+              onChange={e => setNewTeacherEmail(e.target.value)} 
+              placeholder="e.g. john@rajarshigurukul.edu.np" 
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium text-slate-800" 
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">System Role</label>
+            <select 
+              value={newUserRole} 
+              onChange={e => setNewUserRole(e.target.value)} 
+              className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-800"
+            >
+              <option value="teacher">Teacher</option>
+              <option value="eca_teacher">ECA Teacher</option>
+              <option value="staff">Staff</option>
+              <option value="incharge">Incharge</option>
+              <option value="admin">Admin</option>
+              <option value="student">Student</option>
+            </select>
+          </div>
+
+          <button 
+            type="submit" 
+            className="bg-blue-600 hover:bg-blue-700 transition text-white font-semibold text-sm px-4 py-2 rounded-lg cursor-pointer h-[38px] flex items-center justify-center gap-1"
+          >
+            Add New User
+          </button>
+        </form>
+      </div>
+
       <div>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-slate-900">Enrolled Users Registry</h2>
