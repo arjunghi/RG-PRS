@@ -111,7 +111,21 @@ const DEFAULT_STATE: DBState = {
       grades: ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"],
       sections: ["Section A", "Section B", "Section C"],
       terms: ["First Term", "Mid Term", "Final Term"],
-      ecaSports: ["Football", "Basketball", "Table Tennis", "Chess", "Dance", "Music"]
+      ecaSports: ["Football", "Basketball", "Table Tennis", "Chess", "Dance", "Music"],
+      gradeMappings: [
+        { grade: "Grade 1", sections: ["Section A", "Section B", "Section C"] },
+        { grade: "Grade 2", sections: ["Section A", "Section B", "Section C"] },
+        { grade: "Grade 3", sections: ["Section A", "Section B", "Section C"] },
+        { grade: "Grade 4", sections: ["Section A", "Section B", "Section C"] },
+        { grade: "Grade 5", sections: ["Section A", "Section B", "Section C"] },
+        { grade: "Grade 6", sections: ["Section A", "Section B", "Section C"] },
+        { grade: "Grade 7", sections: ["Section A", "Section B", "Section C"] },
+        { grade: "Grade 8", sections: ["Section A", "Section B", "Section C"] },
+        { grade: "Grade 9", sections: ["Section A", "Section B", "Section C"] },
+        { grade: "Grade 10", sections: ["Section A", "Section B", "Section C"] },
+        { grade: "Grade 11", sections: ["Section A", "Section B"] },
+        { grade: "Grade 12", sections: ["Section A", "Section B"] }
+      ]
     }
   },
   staff_chat: [
@@ -127,6 +141,24 @@ const DEFAULT_STATE: DBState = {
 };
 
 let inMemoryState: DBState = { ...DEFAULT_STATE };
+
+export function isDocMatch(item: any, docId: string): boolean {
+  if (!item) return false;
+  const dId = String(item.id || "").toLowerCase().trim();
+  const dEmail = String(item.email || "").toLowerCase().trim();
+  const dUid = String(item.uid || "").toLowerCase().trim();
+  const target = String(docId || "").toLowerCase().trim();
+  
+  if (dId === target || dEmail === target || dUid === target) return true;
+  
+  const normId = dId.replace(/[^a-z0-9]/g, "_");
+  const normEmail = dEmail.replace(/[^a-z0-9]/g, "_");
+  const normUid = dUid.replace(/[^a-z0-9]/g, "_");
+  const normTarget = target.replace(/[^a-z0-9]/g, "_");
+  
+  if (normId === normTarget || normEmail === normTarget || normUid === normTarget) return true;
+  return false;
+}
 
 // Save to disk
 function saveToDisk() {
@@ -185,7 +217,7 @@ export const dbService = {
     }
     const list = inMemoryState[collectionName];
     if (Array.isArray(list)) {
-      return list.find((item) => String(item.id || item.uid || item.email) === String(docId)) || null;
+      return list.find((item) => isDocMatch(item, docId)) || null;
     }
     return null;
   },
@@ -218,7 +250,7 @@ export const dbService = {
 
     const list = inMemoryState[collectionName];
     if (Array.isArray(list)) {
-      const idx = list.findIndex((item) => String(item.id || item.uid || item.email) === String(docId));
+      const idx = list.findIndex((item) => isDocMatch(item, docId));
       const targetId = docId;
       
       const updatedDoc = merge && idx !== -1
@@ -246,7 +278,7 @@ export const dbService = {
 
     const list = inMemoryState[collectionName];
     if (Array.isArray(list)) {
-      const idx = list.findIndex((item) => String(item.id || item.uid || item.email) === String(docId));
+      const idx = list.findIndex((item) => isDocMatch(item, docId));
       if (idx !== -1) {
         list[idx] = { ...list[idx], ...data, updatedAt: new Date().toISOString() };
         saveToDisk();
@@ -267,7 +299,7 @@ export const dbService = {
     const list = inMemoryState[collectionName];
     if (Array.isArray(list)) {
       const lengthBefore = list.length;
-      inMemoryState[collectionName] = list.filter((item) => String(item.id || item.uid || item.email) !== String(docId));
+      inMemoryState[collectionName] = list.filter((item) => !isDocMatch(item, docId));
       if (lengthBefore !== inMemoryState[collectionName].length) {
         saveToDisk();
         return true;

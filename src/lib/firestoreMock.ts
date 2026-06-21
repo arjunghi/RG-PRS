@@ -23,6 +23,24 @@ interface Listener {
   callback: (snapshot: any) => void;
 }
 
+export function isDocMatch(item: any, docId: string): boolean {
+  if (!item) return false;
+  const dId = String(item.id || "").toLowerCase().trim();
+  const dEmail = String(item.email || "").toLowerCase().trim();
+  const dUid = String(item.uid || "").toLowerCase().trim();
+  const target = String(docId || "").toLowerCase().trim();
+  
+  if (dId === target || dEmail === target || dUid === target) return true;
+  
+  const normId = dId.replace(/[^a-z0-9]/g, "_");
+  const normEmail = dEmail.replace(/[^a-z0-9]/g, "_");
+  const normUid = dUid.replace(/[^a-z0-9]/g, "_");
+  const normTarget = target.replace(/[^a-z0-9]/g, "_");
+  
+  if (normId === normTarget || normEmail === normTarget || normUid === normTarget) return true;
+  return false;
+}
+
 const activeListeners: Listener[] = [];
 let pollInterval: any = null;
 let cachedSyncData: any = null;
@@ -44,7 +62,7 @@ async function fetchData() {
         if (ref instanceof MockDocRef) {
           const docData = ref.collectionName === "settings"
             ? data.settings?.[ref.docId]
-            : data[ref.collectionName]?.find((d: any) => String(d.id || d.email) === String(ref.docId));
+            : data[ref.collectionName]?.find((d: any) => isDocMatch(d, ref.docId));
           
           const currentHash = JSON.stringify(docData || null);
           if (currentHash !== listener.lastHash) {
@@ -87,12 +105,16 @@ async function fetchData() {
           const currentHash = JSON.stringify(array);
           if (currentHash !== listener.lastHash) {
             listener.lastHash = currentHash;
+            const docArray = array.map((item) => ({
+              id: item.id || item.uid || item.email,
+              data: () => item,
+              exists: () => true
+            }));
             snap = {
-              docs: array.map((item) => ({
-                id: item.id || item.uid || item.email,
-                data: () => item,
-                exists: () => true
-              }))
+              docs: docArray,
+              size: docArray.length,
+              empty: docArray.length === 0,
+              forEach: (callbackFn: any) => docArray.forEach(callbackFn)
             };
           }
         }
@@ -191,7 +213,7 @@ export function onSnapshot(ref: any, callback: (snap: any) => void, onError?: (e
         if (ref instanceof MockDocRef) {
           const docData = ref.collectionName === "settings"
             ? cachedSyncData.settings?.[ref.docId]
-            : cachedSyncData[ref.collectionName]?.find((d: any) => String(d.id || d.email) === String(ref.docId));
+            : cachedSyncData[ref.collectionName]?.find((d: any) => isDocMatch(d, ref.docId));
           
           listener.lastHash = JSON.stringify(docData || null);
           snap = {
@@ -228,12 +250,16 @@ export function onSnapshot(ref: any, callback: (snap: any) => void, onError?: (e
             }
           }
           listener.lastHash = JSON.stringify(array);
+          const docArray = array.map((item) => ({
+            id: item.id || item.uid || item.email,
+            data: () => item,
+            exists: () => true
+          }));
           snap = {
-            docs: array.map((item) => ({
-              id: item.id || item.uid || item.email,
-              data: () => item,
-              exists: () => true
-            }))
+            docs: docArray,
+            size: docArray.length,
+            empty: docArray.length === 0,
+            forEach: (callbackFn: any) => docArray.forEach(callbackFn)
           };
         }
         if (snap) callback(snap);
@@ -336,13 +362,17 @@ export async function getDocs(queryRef: any) {
     }
   }
   
+  const docArray = array.map((item) => ({
+    id: item.id || item.uid || item.email,
+    data: () => item,
+    exists: () => true
+  }));
+
   return {
-    empty: array.length === 0,
-    docs: array.map((item) => ({
-      id: item.id || item.uid || item.email,
-      data: () => item,
-      exists: () => true
-    }))
+    empty: docArray.length === 0,
+    size: docArray.length,
+    docs: docArray,
+    forEach: (callbackFn: any) => docArray.forEach(callbackFn)
   };
 }
 

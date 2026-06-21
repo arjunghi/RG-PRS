@@ -1,0 +1,208 @@
+{
+  "students": [
+    {
+      "id": "student_std_01",
+      "name": "Aarav Sharma",
+      "gradeLevel": "Grade 10",
+      "section": "Section A",
+      "ecaSports": [
+        "Football"
+      ],
+      "createdAt": "2026-06-21T12:22:06.923Z"
+    },
+    {
+      "id": "student_std_02",
+      "name": "Prisha Adhikari",
+      "gradeLevel": "Grade 10",
+      "section": "Section A",
+      "ecaSports": [
+        "Table Tennis"
+      ],
+      "createdAt": "2026-06-21T12:22:06.923Z"
+    },
+    {
+      "id": "student_std_03",
+      "name": "Siddharth Thapa",
+      "gradeLevel": "Grade 10",
+      "section": "Section B",
+      "ecaSports": [
+        "Chess"
+      ],
+      "createdAt": "2026-06-21T12:22:06.923Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task_01",
+      "title": "Class Presentation 1",
+      "subjectId": "subj_eng",
+      "gradeLevel": "Grade 10",
+      "section": "Section A",
+      "term": "First Term",
+      "type": "cdc",
+      "weight": 10,
+      "maxMarks": 20,
+      "createdAt": "2026-06-21T12:22:06.923Z"
+    },
+    {
+      "id": "task_02",
+      "title": "ECA Football Drilling",
+      "subjectId": "subj_eca",
+      "gradeLevel": "Grade 10",
+      "section": "Section A",
+      "term": "First Term",
+      "type": "eca",
+      "weight": 20,
+      "maxMarks": 50,
+      "createdAt": "2026-06-21T12:22:06.923Z"
+    }
+  ],
+  "subjects": [
+    {
+      "id": "subj_eng",
+      "name": "English Language",
+      "type": "academic",
+      "code": "ENG101"
+    },
+    {
+      "id": "subj_math",
+      "name": "Mathematics",
+      "type": "academic",
+      "code": "MAT101"
+    },
+    {
+      "id": "subj_sci",
+      "name": "Science",
+      "type": "academic",
+      "code": "SCI101"
+    },
+    {
+      "id": "subj_eca",
+      "name": "ECA Performance",
+      "type": "eca",
+      "code": "ECA101"
+    }
+  ],
+  "scores": [
+    {
+      "id": "score_01",
+      "studentId": "student_std_01",
+      "taskId": "task_01",
+      "scoreObtained": 16,
+      "isEca": false,
+      "remarks": "Excellent communication skills."
+    },
+    {
+      "id": "score_02",
+      "studentId": "student_std_02",
+      "taskId": "task_01",
+      "scoreObtained": 18,
+      "isEca": false,
+      "remarks": "Outstanding thesis development."
+    },
+    {
+      "id": "score_03",
+      "studentId": "student_std_01",
+      "taskId": "task_02",
+      "scoreObtained": 45,
+      "isEca": true,
+      "ecaParameter": "participation",
+      "remarks": "Great active leader."
+    }
+  ],
+  "users": [
+    {
+      "id": "arjun_rajarshigurukul_edu_np",
+      "email": "arjun@rajarshigurukul.edu.np",
+      "name": "Arjun (Admin)",
+      "role": "admin",
+      "status": "approved",
+      "password": "adminpassword",
+      "createdAt": "2026-06-21T12:22:06.923Z"
+    },
+    {
+      "id": "arjunrajarshigurukul_gmail_com",
+      "email": "arjunrajarshigurukul@gmail.com",
+      "name": "Arjun Gmail (Admin)",
+      "role": "admin",
+      "status": "approved",
+      "password": "adminpassword",
+      "createdAt": "2026-06-21T12:22:06.923Z"
+    },
+    {
+      "id": "arjun_rajarshigurukul_com",
+      "email": "arjun@rajarshigurukul.com",
+      "name": "Arjun Com (Admin)",
+      "role": "admin",
+      "status": "approved",
+      "password": "adminpassword",
+      "createdAt": "2026-06-21T12:22:06.923Z"
+    },
+    {
+      "email": "arjun@rajarshigurukul.edu.np",
+      "name": "Arjun (Admin)",
+      "role": "admin",
+      "status": "approved",
+      "password": "123456",
+      "createdAt": "2026-06-21T12:54:53.212Z",
+      "id": "arjun@rajarshigurukul.edu.np",
+      "lastActive": "2026-06-21T13:06:56.261Z",
+      "updatedAt": "2026-06-21T13:06:57.189Z"
+    },
+    {
+      "name": "test",
+      "role": "teacher",
+      "status": "approved",
+      "password": "RG123456",
+      "email": "test3@rajarshigurukul.edu.np",
+      "createdAt": "2026-06-21T12:57:09.653Z",
+      "id": "test3@rajarshigurukul.edu.np"
+    }
+  ],
+  "settings": {
+    "schoolConfig": {
+      "grades": [
+        "Grade 1",
+        "Grade 2",
+        "Grade 3",
+        "Grade 4",
+        "Grade 5",
+        "Grade 6",
+        "Grade 7",
+        "Grade 8",
+        "Grade 9",
+        "Grade 10",
+        "Grade 11",
+        "Grade 12"
+      ],
+      "sections": [
+        "Section A",
+        "Section B",
+        "Section C"
+      ],
+      "terms": [
+        "First Term",
+        "Mid Term",
+        "Final Term"
+      ],
+      "ecaSports": [
+        "Football",
+        "Basketball",
+        "Table Tennis",
+        "Chess",
+        "Dance",
+        "Music"
+      ]
+    }
+  },
+  "staff_chat": [
+    {
+      "id": "chat_init",
+      "text": "Welcome to Rajarshi Gurukul Secure Staff Chat!",
+      "senderName": "System",
+      "senderEmail": "system@rajarshigurukul.edu.np",
+      "senderPhoto": "https://ui-avatars.com/api/?name=System",
+      "createdAt": "2026-06-21T12:22:06.923Z"
+    }
+  ]
+}
