@@ -74,9 +74,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           setUser(enrichedUser);
         } else {
-          // If the document is deleted or doesn't exist, clear session
-          setUser(null);
-          localStorage.removeItem("rg_prs_user_session_email");
+          // If the document is deleted or doesn't exist, check absolute admin first before clearing session
+          const isAbsoluteAdminEmail = 
+            emailKey === "arjun@rajarshigurukul.edu.np" || 
+            emailKey === "arjunrajarshigurukul@gmail.com" ||
+            emailKey === "arjun@rajarshigurukul.com";
+
+          if (isAbsoluteAdminEmail) {
+            setDoc(userDocRef, {
+              email: emailKey,
+              name: "Arjun (Admin)",
+              role: "admin",
+              status: "approved",
+              password: "adminpassword",
+              createdAt: new Date().toISOString()
+            });
+            setUser({
+              uid: emailKey,
+              email: emailKey,
+              name: "Arjun (Admin)",
+              displayName: "Arjun (Admin)",
+              role: "admin" as any,
+              appRole: "admin" as any,
+              status: "approved" as any,
+            });
+          } else {
+            // If the document is deleted or doesn't exist, clear session
+            setUser(null);
+            localStorage.removeItem("rg_prs_user_session_email");
+          }
         }
         setLoading(false);
       }, (err) => {

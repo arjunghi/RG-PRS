@@ -215,6 +215,11 @@ export function onSnapshot(ref: any, callback: (snap: any) => void, onError?: (e
             ? cachedSyncData.settings?.[ref.docId]
             : cachedSyncData[ref.collectionName]?.find((d: any) => isDocMatch(d, ref.docId));
           
+          if (!docData) {
+            // Avoid false negatives by waiting for fresh fetch
+            return;
+          }
+          
           listener.lastHash = JSON.stringify(docData || null);
           snap = {
             exists: () => !!docData,
@@ -249,6 +254,12 @@ export function onSnapshot(ref: any, callback: (snap: any) => void, onError?: (e
               array = array.slice(0, c.num);
             }
           }
+          
+          // Avoid transient flash on mount of an empty cache
+          if (array.length === 0) {
+            return;
+          }
+
           listener.lastHash = JSON.stringify(array);
           const docArray = array.map((item) => ({
             id: item.id || item.uid || item.email,

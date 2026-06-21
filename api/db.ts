@@ -176,6 +176,37 @@ export function loadFromDisk() {
       const content = fs.readFileSync(DB_FILE, "utf-8");
       const parsed = JSON.parse(content);
       
+      // Merge keys of settings so default configs like gradeMappings are not lost from earlier versions
+      const mergedSettings = { ...DEFAULT_STATE.settings };
+      if (parsed.settings) {
+        for (const key of Object.keys(parsed.settings)) {
+          mergedSettings[key] = {
+            ...DEFAULT_STATE.settings[key],
+            ...parsed.settings[key]
+          };
+        }
+      }
+
+      // Heal schoolConfig.gradeMappings if missing or empty
+      if (mergedSettings.schoolConfig) {
+        if (!mergedSettings.schoolConfig.gradeMappings || mergedSettings.schoolConfig.gradeMappings.length === 0) {
+          mergedSettings.schoolConfig.gradeMappings = [
+            { grade: "Grade 1", sections: ["Section A", "Section B", "Section C"] },
+            { grade: "Grade 2", sections: ["Section A", "Section B", "Section C"] },
+            { grade: "Grade 3", sections: ["Section A", "Section B", "Section C"] },
+            { grade: "Grade 4", sections: ["Section A", "Section B", "Section C"] },
+            { grade: "Grade 5", sections: ["Section A", "Section B", "Section C"] },
+            { grade: "Grade 6", sections: ["Section A", "Section B", "Section C"] },
+            { grade: "Grade 7", sections: ["Section A", "Section B", "Section C"] },
+            { grade: "Grade 8", sections: ["Section A", "Section B", "Section C"] },
+            { grade: "Grade 9", sections: ["Section A", "Section B", "Section C"] },
+            { grade: "Grade 10", sections: ["Section A", "Section B", "Section C"] },
+            { grade: "Grade 11", sections: ["Section A", "Section B"] },
+            { grade: "Grade 12", sections: ["Section A", "Section B"] }
+          ];
+        }
+      }
+
       // Ensure all collections exist
       inMemoryState = {
         students: parsed.students || DEFAULT_STATE.students,
@@ -183,9 +214,10 @@ export function loadFromDisk() {
         subjects: parsed.subjects || DEFAULT_STATE.subjects,
         scores: parsed.scores || DEFAULT_STATE.scores,
         users: parsed.users || DEFAULT_STATE.users,
-        settings: parsed.settings || DEFAULT_STATE.settings,
+        settings: mergedSettings,
         staff_chat: parsed.staff_chat || DEFAULT_STATE.staff_chat
       };
+      saveToDisk();
     } else {
       inMemoryState = { ...DEFAULT_STATE };
       saveToDisk();
